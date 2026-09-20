@@ -6,6 +6,9 @@ param migratorPrincipalId string
 resource server 'Microsoft.Sql/servers@2023-08-01-preview' = {
   name: 'sql-${prefix}-${suffix}'
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     administrators: {
       administratorType: 'ActiveDirectory'
@@ -46,4 +49,5 @@ resource db 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
 
 output sqlServerFqdn string = server.properties.fullyQualifiedDomainName
 output sqlServerName string = server.name
+output sqlServerPrincipalId string = server.identity.principalId
 output sqlConnectionString string = 'Server=tcp:${server.properties.fullyQualifiedDomainName},1433;Initial Catalog=mod;Authentication=Active Directory Managed Identity;Encrypt=True;'

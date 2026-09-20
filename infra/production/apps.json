@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "15622364926925516008"
+      "templateHash": "8481521176686856720"
     }
   },
   "parameters": {
@@ -158,6 +158,12 @@
       "properties": {
         "managedEnvironmentId": "[parameters('caeId')]",
         "configuration": {
+          "registries": [
+            {
+              "server": "[parameters('acrLoginServer')]",
+              "identity": "[parameters('ingestIdentityId')]"
+            }
+          ],
           "ingress": {
             "external": true,
             "targetPort": 8080,
@@ -192,7 +198,7 @@
                 },
                 {
                   "name": "SQL_CONNECTION",
-                  "value": "[parameters('sqlConnectionString')]"
+                  "value": "[format('{0}User ID={1};', parameters('sqlConnectionString'), parameters('ingestClientId'))]"
                 },
                 {
                   "name": "EVENTHUB_FQDN",
@@ -272,6 +278,12 @@
       "properties": {
         "managedEnvironmentId": "[parameters('caeId')]",
         "configuration": {
+          "registries": [
+            {
+              "server": "[parameters('acrLoginServer')]",
+              "identity": "[parameters('processingIdentityId')]"
+            }
+          ],
           "ingress": null
         },
         "template": {
@@ -302,7 +314,7 @@
                 },
                 {
                   "name": "SQL_CONNECTION",
-                  "value": "[parameters('sqlConnectionString')]"
+                  "value": "[format('{0}User ID={1};', parameters('sqlConnectionString'), parameters('processingClientId'))]"
                 },
                 {
                   "name": "EVENTHUB_FQDN",
@@ -367,8 +379,7 @@
                     "unprocessedEventThreshold": "64",
                     "checkpointStrategy": "blobMetadata",
                     "blobContainer": "checkpoints",
-                    "storageAccountName": "[parameters('storageAccountName')]",
-                    "clientId": "[parameters('processingClientId')]"
+                    "storageAccountName": "[parameters('storageAccountName')]"
                   }
                 }
               }
@@ -391,6 +402,12 @@
       "properties": {
         "managedEnvironmentId": "[parameters('caeId')]",
         "configuration": {
+          "registries": [
+            {
+              "server": "[parameters('acrLoginServer')]",
+              "identity": "[parameters('portalIdentityId')]"
+            }
+          ],
           "ingress": {
             "external": true,
             "targetPort": 8080
@@ -436,7 +453,7 @@
                 },
                 {
                   "name": "SQL_CONNECTION",
-                  "value": "[parameters('sqlConnectionString')]"
+                  "value": "[format('{0}User ID={1};', parameters('sqlConnectionString'), parameters('portalClientId'))]"
                 },
                 {
                   "name": "KEYVAULT_URI",
@@ -574,6 +591,12 @@
       "properties": {
         "managedEnvironmentId": "[parameters('caeId')]",
         "configuration": {
+          "registries": [
+            {
+              "server": "[parameters('acrLoginServer')]",
+              "identity": "[parameters('reportingIdentityId')]"
+            }
+          ],
           "ingress": {
             "external": true,
             "targetPort": 8080
@@ -614,7 +637,7 @@
                 },
                 {
                   "name": "SQL_CONNECTION",
-                  "value": "[parameters('sqlConnectionString')]"
+                  "value": "[format('{0}User ID={1};', parameters('sqlConnectionString'), parameters('reportingClientId'))]"
                 },
                 {
                   "name": "KEYVAULT_URI",
@@ -672,6 +695,12 @@
       "properties": {
         "managedEnvironmentId": "[parameters('caeId')]",
         "configuration": {
+          "registries": [
+            {
+              "server": "[parameters('acrLoginServer')]",
+              "identity": "[parameters('managementIdentityId')]"
+            }
+          ],
           "ingress": {
             "external": true,
             "targetPort": 8080,
@@ -713,7 +742,7 @@
                 },
                 {
                   "name": "SQL_CONNECTION",
-                  "value": "[parameters('sqlConnectionString')]"
+                  "value": "[format('{0}User ID={1};', parameters('sqlConnectionString'), parameters('managementClientId'))]"
                 },
                 {
                   "name": "KEYVAULT_URI",
@@ -791,18 +820,24 @@
       "properties": {
         "environmentId": "[parameters('caeId')]",
         "configuration": {
+          "registries": [
+            {
+              "server": "[parameters('acrLoginServer')]",
+              "identity": "[parameters('migratorIdentityId')]"
+            }
+          ],
           "triggerType": "Manual",
           "replicaTimeout": 600,
           "replicaRetryLimit": 0,
           "secrets": [
             {
               "name": "admin-password",
-              "keyVaultUrl": "[format('{0}secrets/admin-password/', parameters('kvUri'))]",
+              "keyVaultUrl": "[format('{0}secrets/admin-password', parameters('kvUri'))]",
               "identity": "[parameters('migratorIdentityId')]"
             },
             {
               "name": "customer-password",
-              "keyVaultUrl": "[format('{0}secrets/customer-password/', parameters('kvUri'))]",
+              "keyVaultUrl": "[format('{0}secrets/customer-password', parameters('kvUri'))]",
               "identity": "[parameters('migratorIdentityId')]"
             }
           ]
@@ -831,7 +866,7 @@
                 },
                 {
                   "name": "SQL_CONNECTION",
-                  "value": "[parameters('sqlConnectionString')]"
+                  "value": "[format('{0}User ID={1};', parameters('sqlConnectionString'), parameters('migratorClientId'))]"
                 },
                 {
                   "name": "IDENTITY_INGEST_NAME",

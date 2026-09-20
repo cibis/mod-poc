@@ -7,13 +7,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
 # ── Tee output to timestamped log ─────────────────────────────────────────────
-_LOG_FILE="$REPO_ROOT/tmp/up-$(date +%Y%m%d-%H%M%S).log"
-mkdir -p "$REPO_ROOT/tmp"
+_TS="$(date +%Y%m%d-%H%M%S)"
+_BUILD_LOG_DIR="$REPO_ROOT/tmp/up-$_TS"
+_LOG_FILE="$_BUILD_LOG_DIR/up-$_TS.log"
+mkdir -p "$_BUILD_LOG_DIR"
 exec > >(tee "$_LOG_FILE") 2>&1
 echo "Logging to $_LOG_FILE"
-
-# Force UTF-8 in the Azure CLI Python runtime (prevents cp1252 encode errors
-# when ACR build log output contains unicode characters from Angular CLI)
 
 # ── Arg parsing ──────────────────────────────────────────────────────────────
 
@@ -121,8 +120,32 @@ CMD_SB_ISSUER_KEY_SECRET_URI=$( printf '%s' "$CORE_OUT" | jq -r '.cmdSbIssuerKey
 SIM_SB_ISSUER_KEY_SECRET_URI=$( printf '%s' "$CORE_OUT" | jq -r '.simSbIssuerKeySecretUri.value')
 PORTAL_JWT_KEY_SECRET_URI=$(    printf '%s' "$CORE_OUT" | jq -r '.portalJwtKeySecretUri.value')
 REPORTING_JWT_KEY_SECRET_URI=$( printf '%s' "$CORE_OUT" | jq -r '.reportingJwtKeySecretUri.value')
+SQL_SERVER_PRINCIPAL_ID=$(      printf '%s' "$CORE_OUT" | jq -r '.sqlServerPrincipalId.value')
 
 ACR_NAME="${ACR_LOGIN_SERVER%%.*}"
+
+# ── Step 4b: Assign Directory Reader to SQL server identity ──────────────────
+# Required so SQL Server can resolve Azure AD object IDs when creating users.
+
+info "Assigning Directory Reader role to SQL server identity..."
+_DR_TEMPLATE_ID="88d8e3e3-8f55-4a1e-953a-9b9898b8876b"
+# Activate role in tenant if not already active (idempotent)
+az rest --method POST \
+  --url "https://graph.microsoft.com/v1.0/directoryRoles" \
+  --body "{\"roleTemplateId\":\"${_DR_TEMPLATE_ID}\"}" \
+  --output none 2>/dev/null || true
+_DR_ROLE_ID=$(az rest --method GET \
+  --url "https://graph.microsoft.com/v1.0/directoryRoles?\$filter=roleTemplateId+eq+'${_DR_TEMPLATE_ID}'" \
+  --query "value[0].id" -o tsv 2>/dev/null || true)
+if [[ -n "$_DR_ROLE_ID" && -n "$SQL_SERVER_PRINCIPAL_ID" ]]; then
+  az rest --method POST \
+    --url "https://graph.microsoft.com/v1.0/directoryRoles/${_DR_ROLE_ID}/members/\$ref" \
+    --body "{\"@odata.id\":\"https://graph.microsoft.com/v1.0/directoryObjects/${SQL_SERVER_PRINCIPAL_ID}\"}" \
+    --output none 2>/dev/null || true
+  info "Directory Reader assigned (or already present)."
+else
+  warn "Could not assign Directory Reader to SQL server — may need to be done manually."
+fi
 
 # ── Step 5: Key Vault secrets ─────────────────────────────────────────────────
 
@@ -259,63 +282,69 @@ IMAGE_TAG=$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null \
 info "Building images with tag: $IMAGE_TAG"
 
 declare -a BUILD_PIDS=()
+declare -a BUILD_LOGS=()
+declare -a BUILD_IMAGES=()
 
-# az acr build exits non-zero on Windows due to a colorama/CP1252 encoding bug
-# when streaming Docker log output that contains unicode characters (e.g. Angular
-# CLI progress glyphs). The remote ACR build succeeds regardless. We use || true
-# to absorb the spurious exit code and verify success by checking ACR directly.
-az acr build --registry "$ACR_NAME" \
-  --image "mod/ingest-api:$IMAGE_TAG" \
-  --file "platform/docker/ingest-api.Dockerfile" \
-  "$REPO_ROOT/platform" || true &
-BUILD_PIDS+=($!)
+_start_acr_build() {
+  local image="$1"; shift
+  local imgname="${image%%:*}"; imgname="${imgname##*/}"
+  local log="$_BUILD_LOG_DIR/acr-$imgname-$IMAGE_TAG.log"
+  # Run without log streaming to avoid Windows colorama/CP1252 encoding crash.
+  # Capture run ID so logs can be fetched after completion.
+  (
+    local output exit_code run_id
+    output=$(az acr build --registry "$ACR_NAME" --image "$image" \
+      --no-logs --output json "$@" 2>&1)
+    exit_code=$?
+    run_id=$(printf '%s' "$output" | jq -r '.runId // empty' 2>/dev/null || true)
+    [[ -z "$run_id" ]] && \
+      run_id=$(printf '%s' "$output" | grep -oE 'build with ID: [a-z0-9]+' | awk '{print $NF}' || true)
+    printf '%s\n' "$run_id" >"${log%.log}.runid"
+    exit $exit_code
+  ) &
+  BUILD_PIDS+=($!)
+  BUILD_LOGS+=("$log")
+  BUILD_IMAGES+=("$image")
+}
 
-az acr build --registry "$ACR_NAME" \
-  --image "mod/management-api:$IMAGE_TAG" \
-  --file "platform/docker/management-api.Dockerfile" \
-  "$REPO_ROOT/platform" || true &
-BUILD_PIDS+=($!)
+_start_acr_build "mod/ingest-api:$IMAGE_TAG" \
+  --file "platform/docker/ingest-api.Dockerfile" "$REPO_ROOT/platform"
 
-az acr build --registry "$ACR_NAME" \
-  --image "mod/processing:$IMAGE_TAG" \
-  --file "platform/docker/processing.Dockerfile" \
-  "$REPO_ROOT/platform" || true &
-BUILD_PIDS+=($!)
+_start_acr_build "mod/management-api:$IMAGE_TAG" \
+  --file "platform/docker/management-api.Dockerfile" "$REPO_ROOT/platform"
 
-az acr build --registry "$ACR_NAME" \
-  --image "mod/db-migrator:$IMAGE_TAG" \
-  --file "platform/docker/db-migrator.Dockerfile" \
-  "$REPO_ROOT/platform" || true &
-BUILD_PIDS+=($!)
+_start_acr_build "mod/processing:$IMAGE_TAG" \
+  --file "platform/docker/processing.Dockerfile" "$REPO_ROOT/platform"
 
-az acr build --registry "$ACR_NAME" \
-  --image "mod/collector:$IMAGE_TAG" \
-  "$REPO_ROOT/edge" || true &
-BUILD_PIDS+=($!)
+_start_acr_build "mod/db-migrator:$IMAGE_TAG" \
+  --file "platform/docker/db-migrator.Dockerfile" "$REPO_ROOT/platform"
 
-az acr build --registry "$ACR_NAME" \
-  --image "mod/portal:$IMAGE_TAG" \
-  "$REPO_ROOT/portal" || true &
-BUILD_PIDS+=($!)
+_start_acr_build "mod/collector:$IMAGE_TAG" "$REPO_ROOT/edge"
 
-az acr build --registry "$ACR_NAME" \
-  --image "mod/customer:$IMAGE_TAG" \
-  "$REPO_ROOT/customer" || true &
-BUILD_PIDS+=($!)
+_start_acr_build "mod/portal:$IMAGE_TAG" "$REPO_ROOT/portal"
+
+_start_acr_build "mod/customer:$IMAGE_TAG" "$REPO_ROOT/customer"
 
 info "Waiting for all image builds..."
-wait "${BUILD_PIDS[@]}"
-
-# Verify every image was actually pushed to ACR
-_missing=()
-for _img in ingest-api management-api processing db-migrator collector portal customer; do
-  az acr manifest list-metadata --registry "$ACR_NAME" --name "mod/$_img" \
-    --query "[?tags[?@=='$IMAGE_TAG']]" -o tsv 2>/dev/null | grep -q . \
-    || _missing+=("mod/$_img:$IMAGE_TAG")
+_build_failed=false
+for _i in "${!BUILD_PIDS[@]}"; do
+  _exit=0
+  wait "${BUILD_PIDS[$_i]}" || _exit=$?
+  _run_id=$(cat "${BUILD_LOGS[$_i]%.log}.runid" 2>/dev/null | tr -d '[:space:]' || true)
+  if [[ -n "$_run_id" ]]; then
+    info "Fetching build log for ${BUILD_IMAGES[$_i]} (run $_run_id)..."
+    az acr task logs --registry "$ACR_NAME" --run-id "$_run_id" \
+      >"${BUILD_LOGS[$_i]}" 2>&1 || true
+  fi
+  if [[ $_exit -ne 0 ]]; then
+    error "Build failed: ${BUILD_IMAGES[$_i]} — see ${BUILD_LOGS[$_i]}"
+    [[ -f "${BUILD_LOGS[$_i]}" ]] && cat "${BUILD_LOGS[$_i]}" >&2
+    _build_failed=true
+  else
+    info "Build succeeded: ${BUILD_IMAGES[$_i]} — log: ${BUILD_LOGS[$_i]}"
+  fi
 done
-if [[ ${#_missing[@]} -gt 0 ]]; then
-  die "The following images failed to build: ${_missing[*]}"
-fi
+[[ "$_build_failed" == "true" ]] && die "One or more image builds failed."
 info "All images built and pushed."
 
 # ── Step 9: Deploy controller/main.bicep ─────────────────────────────────────
@@ -408,10 +437,10 @@ for _i in $(seq 1 60); do
     Succeeded) break ;;
     Failed|Degraded)
       error "Migration job failed (status: $JOB_STATUS). Logs:"
-      az containerapp job execution logs show \
+      az containerapp logs show \
         --name job-dbmigrate \
         --resource-group "$(rg_prod)" \
-        --execution-name "$EXEC_NAME" >&2 2>/dev/null || true
+        --type console --tail 50 2>/dev/null || true
       exit 1 ;;
   esac
   sleep 10

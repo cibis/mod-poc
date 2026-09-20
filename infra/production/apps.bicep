@@ -95,7 +95,7 @@ resource caIngest 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
             { name: 'ASPNETCORE_URLS', value: 'http://+:8080' }
             { name: 'MOD_ENVIRONMENT', value: modEnv }
-            { name: 'SQL_CONNECTION', value: sqlConnectionString }
+            { name: 'SQL_CONNECTION', value: '${sqlConnectionString}User ID=${ingestClientId};' }
             { name: 'EVENTHUB_FQDN', value: ehFqdn }
             { name: 'EVENTHUB_NAME', value: 'telemetry' }
             { name: 'COLLECTOR_CA_CERT_PEM_BASE64', value: '' }
@@ -154,7 +154,7 @@ resource caProcessing 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
             { name: 'ASPNETCORE_URLS', value: 'http://+:8080' }
             { name: 'MOD_ENVIRONMENT', value: modEnv }
-            { name: 'SQL_CONNECTION', value: sqlConnectionString }
+            { name: 'SQL_CONNECTION', value: '${sqlConnectionString}User ID=${processingClientId};' }
             { name: 'EVENTHUB_FQDN', value: ehFqdn }
             { name: 'EVENTHUB_NAME', value: 'telemetry' }
             { name: 'EVENTHUB_CONSUMER_GROUP', value: 'processing' }
@@ -240,7 +240,7 @@ resource caPortal 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
             { name: 'ASPNETCORE_URLS', value: 'http://+:8080' }
             { name: 'MOD_ENVIRONMENT', value: modEnv }
-            { name: 'SQL_CONNECTION', value: sqlConnectionString }
+            { name: 'SQL_CONNECTION', value: '${sqlConnectionString}User ID=${portalClientId};' }
             { name: 'KEYVAULT_URI', value: kvUri }
             { name: 'PORTAL_JWT_KEY', secretRef: 'portal-jwt-key' }
             { name: 'CMD_SB_FQDN', value: cmdSbFqdn }
@@ -320,7 +320,7 @@ resource caReporting 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
             { name: 'ASPNETCORE_URLS', value: 'http://+:8080' }
             { name: 'MOD_ENVIRONMENT', value: modEnv }
-            { name: 'SQL_CONNECTION', value: sqlConnectionString }
+            { name: 'SQL_CONNECTION', value: '${sqlConnectionString}User ID=${reportingClientId};' }
             { name: 'KEYVAULT_URI', value: kvUri }
             { name: 'REPORTING_JWT_KEY', secretRef: 'reporting-jwt-key' }
             { name: 'FRESHNESS_STALE_SECONDS', value: '60' }
@@ -381,7 +381,7 @@ resource caMgmt 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
             { name: 'ASPNETCORE_URLS', value: 'http://+:8080' }
             { name: 'MOD_ENVIRONMENT', value: modEnv }
-            { name: 'SQL_CONNECTION', value: sqlConnectionString }
+            { name: 'SQL_CONNECTION', value: '${sqlConnectionString}User ID=${managementClientId};' }
             { name: 'KEYVAULT_URI', value: kvUri }
             { name: 'CA_CERT_NAME', value: 'collector-ca' }
             { name: 'CERT_VALIDITY_DAYS', value: '7' }
@@ -449,7 +449,7 @@ resource jobDbMigrate 'Microsoft.App/jobs@2024-03-01' = {
             { name: 'AZURE_CLIENT_ID', value: migratorClientId }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
             { name: 'MOD_ENVIRONMENT', value: modEnv }
-            { name: 'SQL_CONNECTION', value: sqlConnectionString }
+            { name: 'SQL_CONNECTION', value: '${sqlConnectionString}User ID=${migratorClientId};' }
             { name: 'IDENTITY_INGEST_NAME', value: ingestIdName }
             { name: 'IDENTITY_INGEST_OBJECT_ID', value: ingestPrincipalId }
             { name: 'IDENTITY_PROCESSING_NAME', value: processingIdName }

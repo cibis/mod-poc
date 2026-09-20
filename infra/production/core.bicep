@@ -417,6 +417,7 @@ output cmdSbFqdn string = sbcmd.outputs.cmdSbFqdn
 output simSbFqdn string = sbsim.outputs.simSbFqdn
 
 output sqlConnectionString string = sql.outputs.sqlConnectionString
+output sqlServerPrincipalId string = sql.outputs.sqlServerPrincipalId
 
 output caeId string = cae.outputs.caeId
 output caeName string = cae.outputs.caeName
