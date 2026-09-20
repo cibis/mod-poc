@@ -422,7 +422,7 @@ output caeId string = cae.outputs.caeId
 output caeName string = cae.outputs.caeName
 output caeDefaultDomain string = cae.outputs.caeDefaultDomain
 
-output cmdSbIssuerKeySecretUri string = '${kv.outputs.kvUri}secrets/cmd-sb-issuer-key/'
-output simSbIssuerKeySecretUri string = '${kv.outputs.kvUri}secrets/sim-sb-issuer-key/'
-output portalJwtKeySecretUri string = '${kv.outputs.kvUri}secrets/portal-jwt-key/'
-output reportingJwtKeySecretUri string = '${kv.outputs.kvUri}secrets/reporting-jwt-key/'
+output cmdSbIssuerKeySecretUri string = '${kv.outputs.kvUri}secrets/cmd-sb-issuer-key'
+output simSbIssuerKeySecretUri string = '${kv.outputs.kvUri}secrets/sim-sb-issuer-key'
+output portalJwtKeySecretUri string = '${kv.outputs.kvUri}secrets/portal-jwt-key'
+output reportingJwtKeySecretUri string = '${kv.outputs.kvUri}secrets/reporting-jwt-key'

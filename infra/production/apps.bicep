@@ -74,6 +74,7 @@ resource caIngest 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     managedEnvironmentId: caeId
     configuration: {
+      registries: [{ server: acrLoginServer, identity: ingestIdentityId }]
       ingress: {
         external: true
         targetPort: 8080
@@ -136,6 +137,7 @@ resource caProcessing 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     managedEnvironmentId: caeId
     configuration: {
+      registries: [{ server: acrLoginServer, identity: processingIdentityId }]
       ingress: null
     }
     template: {
@@ -184,7 +186,6 @@ resource caProcessing 'Microsoft.App/containerApps@2024-03-01' = {
                 checkpointStrategy: 'blobMetadata'
                 blobContainer: 'checkpoints'
                 storageAccountName: storageAccountName
-                clientId: processingClientId
               }
             }
           }
@@ -207,6 +208,7 @@ resource caPortal 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     managedEnvironmentId: caeId
     configuration: {
+      registries: [{ server: acrLoginServer, identity: portalIdentityId }]
       ingress: {
         external: true
         targetPort: 8080
@@ -291,6 +293,7 @@ resource caReporting 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     managedEnvironmentId: caeId
     configuration: {
+      registries: [{ server: acrLoginServer, identity: reportingIdentityId }]
       ingress: {
         external: true
         targetPort: 8080
@@ -350,6 +353,7 @@ resource caMgmt 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     managedEnvironmentId: caeId
     configuration: {
+      registries: [{ server: acrLoginServer, identity: managementIdentityId }]
       ingress: {
         external: true
         targetPort: 8080
@@ -415,18 +419,19 @@ resource jobDbMigrate 'Microsoft.App/jobs@2024-03-01' = {
   properties: {
     environmentId: caeId
     configuration: {
+      registries: [{ server: acrLoginServer, identity: migratorIdentityId }]
       triggerType: 'Manual'
       replicaTimeout: 600
       replicaRetryLimit: 0
       secrets: [
         {
           name: 'admin-password'
-          keyVaultUrl: '${kvUri}secrets/admin-password/'
+          keyVaultUrl: '${kvUri}secrets/admin-password'
           identity: migratorIdentityId
         }
         {
           name: 'customer-password'
-          keyVaultUrl: '${kvUri}secrets/customer-password/'
+          keyVaultUrl: '${kvUri}secrets/customer-password'
           identity: migratorIdentityId
         }
       ]
