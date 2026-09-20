@@ -1,0 +1,28 @@
+<h2 mat-dialog-title>New Tenant</h2>
+<mat-dialog-content>
+  <form [formGroup]="form" id="createForm">
+    <mat-form-field class="full-width">
+      <mat-label>Name</mat-label>
+      <input matInput formControlName="name" />
+    </mat-form-field>
+
+    <p class="field-label">Isolation Mode</p>
+    <mat-radio-group formControlName="isolationMode" class="radio-group">
+      <mat-radio-button value="Pooled">Pooled</mat-radio-button>
+      <mat-radio-button value="Dedicated" disabled>
+        Dedicated
+        <span class="disabled-note"> — Dedicated infrastructure is not supported in the PoC.</span>
+      </mat-radio-button>
+    </mat-radio-group>
+
+    @if (error()) {
+      <p class="error-msg">{{ error() }}</p>
+    }
+  </form>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Cancel</button>
+  <button mat-flat-button color="primary" (click)="submit()" [disabled]="loading() || form.invalid">
+    @if (loading()) { <mat-spinner diameter="18" /> } @else { Create }
+  </button>
+</mat-dialog-actions>

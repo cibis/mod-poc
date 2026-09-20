@@ -1,0 +1,68 @@
+.sidenav-container {
+  height: 100vh;
+}
+
+.sidenav {
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidenav-header {
+  padding: 16px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.portal-title {
+  color: inherit;
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.top-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.content-area {
+  padding: 24px;
+  flex: 1;
+  overflow: auto;
+}
+
+.active-link {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.simulator-link {
+  background-color: #fff8e1;
+  color: #e65100;
+
+  mat-icon {
+    color: #e65100;
+  }
+
+  &.active-link {
+    background-color: #ffe082;
+  }
+}
+
+.demo-badge {
+  font-size: 0.65rem;
+  background: #ff6f00;
+  color: white;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+.user-name {
+  font-size: 0.9rem;
+  margin-right: 8px;
+}

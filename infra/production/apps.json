@@ -1,0 +1,901 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "15622364926925516008"
+    }
+  },
+  "parameters": {
+    "imageTag": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "caeId": {
+      "type": "string"
+    },
+    "caeDefaultDomain": {
+      "type": "string"
+    },
+    "ingestIdentityId": {
+      "type": "string"
+    },
+    "ingestClientId": {
+      "type": "string"
+    },
+    "processingIdentityId": {
+      "type": "string"
+    },
+    "processingClientId": {
+      "type": "string"
+    },
+    "managementIdentityId": {
+      "type": "string"
+    },
+    "managementClientId": {
+      "type": "string"
+    },
+    "portalIdentityId": {
+      "type": "string"
+    },
+    "portalClientId": {
+      "type": "string"
+    },
+    "reportingIdentityId": {
+      "type": "string"
+    },
+    "reportingClientId": {
+      "type": "string"
+    },
+    "migratorIdentityId": {
+      "type": "string"
+    },
+    "migratorClientId": {
+      "type": "string"
+    },
+    "ingestPrincipalId": {
+      "type": "string"
+    },
+    "processingPrincipalId": {
+      "type": "string"
+    },
+    "managementPrincipalId": {
+      "type": "string"
+    },
+    "portalPrincipalId": {
+      "type": "string"
+    },
+    "reportingPrincipalId": {
+      "type": "string"
+    },
+    "appInsightsConnectionString": {
+      "type": "string"
+    },
+    "kvUri": {
+      "type": "string"
+    },
+    "acrLoginServer": {
+      "type": "string"
+    },
+    "storageAccountName": {
+      "type": "string"
+    },
+    "checkpointBlobContainerUrl": {
+      "type": "string"
+    },
+    "ehFqdn": {
+      "type": "string"
+    },
+    "cmdSbFqdn": {
+      "type": "string"
+    },
+    "simSbFqdn": {
+      "type": "string"
+    },
+    "sqlConnectionString": {
+      "type": "string"
+    },
+    "cmdSbIssuerKeySecretUri": {
+      "type": "string"
+    },
+    "simSbIssuerKeySecretUri": {
+      "type": "string"
+    },
+    "portalJwtKeySecretUri": {
+      "type": "string"
+    },
+    "reportingJwtKeySecretUri": {
+      "type": "string"
+    },
+    "controllerSubscriptionId": {
+      "type": "string"
+    },
+    "controllerResourceGroup": {
+      "type": "string"
+    },
+    "controllerEnvironmentId": {
+      "type": "string"
+    },
+    "controllerLocation": {
+      "type": "string"
+    },
+    "collectorPullIdentityId": {
+      "type": "string"
+    },
+    "developerPrincipals": {
+      "type": "string",
+      "defaultValue": ""
+    }
+  },
+  "variables": {
+    "modEnv": "production",
+    "ingestUrl": "[format('https://ca-ingest.{0}', parameters('caeDefaultDomain'))]",
+    "managementUrl": "[format('https://ca-mgmt.{0}', parameters('caeDefaultDomain'))]",
+    "collectorImage": "[format('{0}/mod/collector:{1}', parameters('acrLoginServer'), parameters('imageTag'))]",
+    "ingestIdName": "[last(split(parameters('ingestIdentityId'), '/'))]",
+    "processingIdName": "[last(split(parameters('processingIdentityId'), '/'))]",
+    "managementIdName": "[last(split(parameters('managementIdentityId'), '/'))]",
+    "portalIdName": "[last(split(parameters('portalIdentityId'), '/'))]",
+    "reportingIdName": "[last(split(parameters('reportingIdentityId'), '/'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "ca-ingest",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', parameters('ingestIdentityId'))]": {}
+        }
+      },
+      "properties": {
+        "managedEnvironmentId": "[parameters('caeId')]",
+        "configuration": {
+          "ingress": {
+            "external": true,
+            "targetPort": 8080,
+            "clientCertificateMode": "require"
+          }
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "ingest-api",
+              "image": "[format('{0}/mod/ingest-api:{1}', parameters('acrLoginServer'), parameters('imageTag'))]",
+              "resources": {
+                "cpu": "[json('0.5')]",
+                "memory": "1Gi"
+              },
+              "env": [
+                {
+                  "name": "AZURE_CLIENT_ID",
+                  "value": "[parameters('ingestClientId')]"
+                },
+                {
+                  "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                  "value": "[parameters('appInsightsConnectionString')]"
+                },
+                {
+                  "name": "ASPNETCORE_URLS",
+                  "value": "http://+:8080"
+                },
+                {
+                  "name": "MOD_ENVIRONMENT",
+                  "value": "[variables('modEnv')]"
+                },
+                {
+                  "name": "SQL_CONNECTION",
+                  "value": "[parameters('sqlConnectionString')]"
+                },
+                {
+                  "name": "EVENTHUB_FQDN",
+                  "value": "[parameters('ehFqdn')]"
+                },
+                {
+                  "name": "EVENTHUB_NAME",
+                  "value": "telemetry"
+                },
+                {
+                  "name": "COLLECTOR_CA_CERT_PEM_BASE64",
+                  "value": ""
+                },
+                {
+                  "name": "INGEST_MAX_EVENTS",
+                  "value": "500"
+                },
+                {
+                  "name": "INGEST_MAX_BYTES",
+                  "value": "262144"
+                },
+                {
+                  "name": "INGEST_RATE_LIMIT_PER_COLLECTOR",
+                  "value": "20"
+                },
+                {
+                  "name": "REGISTRY_CACHE_SECONDS",
+                  "value": "30"
+                }
+              ],
+              "probes": [
+                {
+                  "type": "Liveness",
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  }
+                },
+                {
+                  "type": "Readiness",
+                  "httpGet": {
+                    "path": "/readyz",
+                    "port": 8080
+                  }
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": 1,
+            "maxReplicas": 4,
+            "rules": [
+              {
+                "name": "http-scaler",
+                "http": {
+                  "metadata": {
+                    "concurrentRequests": "50"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "ca-processing",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', parameters('processingIdentityId'))]": {}
+        }
+      },
+      "properties": {
+        "managedEnvironmentId": "[parameters('caeId')]",
+        "configuration": {
+          "ingress": null
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "processing",
+              "image": "[format('{0}/mod/processing:{1}', parameters('acrLoginServer'), parameters('imageTag'))]",
+              "resources": {
+                "cpu": "[json('0.5')]",
+                "memory": "1Gi"
+              },
+              "env": [
+                {
+                  "name": "AZURE_CLIENT_ID",
+                  "value": "[parameters('processingClientId')]"
+                },
+                {
+                  "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                  "value": "[parameters('appInsightsConnectionString')]"
+                },
+                {
+                  "name": "ASPNETCORE_URLS",
+                  "value": "http://+:8080"
+                },
+                {
+                  "name": "MOD_ENVIRONMENT",
+                  "value": "[variables('modEnv')]"
+                },
+                {
+                  "name": "SQL_CONNECTION",
+                  "value": "[parameters('sqlConnectionString')]"
+                },
+                {
+                  "name": "EVENTHUB_FQDN",
+                  "value": "[parameters('ehFqdn')]"
+                },
+                {
+                  "name": "EVENTHUB_NAME",
+                  "value": "telemetry"
+                },
+                {
+                  "name": "EVENTHUB_CONSUMER_GROUP",
+                  "value": "processing"
+                },
+                {
+                  "name": "CHECKPOINT_BLOB_CONTAINER_URL",
+                  "value": "[parameters('checkpointBlobContainerUrl')]"
+                },
+                {
+                  "name": "WINDOW_GRACE_SECONDS",
+                  "value": "120"
+                },
+                {
+                  "name": "DEDUPE_RETENTION_DAYS",
+                  "value": "14"
+                },
+                {
+                  "name": "RAW_RETENTION_DAYS",
+                  "value": "7"
+                },
+                {
+                  "name": "PROCESSING_DELAY_MS",
+                  "value": "20"
+                },
+                {
+                  "name": "MAPPING_CACHE_SECONDS",
+                  "value": "30"
+                }
+              ],
+              "probes": [
+                {
+                  "type": "Liveness",
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  }
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": 0,
+            "maxReplicas": 8,
+            "rules": [
+              {
+                "name": "eventhub-scaler",
+                "custom": {
+                  "type": "azure-eventhub",
+                  "metadata": {
+                    "eventHubNamespace": "[split(parameters('ehFqdn'), '.')[0]]",
+                    "eventHubName": "telemetry",
+                    "consumerGroup": "processing",
+                    "unprocessedEventThreshold": "64",
+                    "checkpointStrategy": "blobMetadata",
+                    "blobContainer": "checkpoints",
+                    "storageAccountName": "[parameters('storageAccountName')]",
+                    "clientId": "[parameters('processingClientId')]"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "ca-portal",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', parameters('portalIdentityId'))]": {}
+        }
+      },
+      "properties": {
+        "managedEnvironmentId": "[parameters('caeId')]",
+        "configuration": {
+          "ingress": {
+            "external": true,
+            "targetPort": 8080
+          },
+          "secrets": [
+            {
+              "name": "portal-jwt-key",
+              "keyVaultUrl": "[parameters('portalJwtKeySecretUri')]",
+              "identity": "[parameters('portalIdentityId')]"
+            },
+            {
+              "name": "sim-sb-sas-key",
+              "keyVaultUrl": "[parameters('simSbIssuerKeySecretUri')]",
+              "identity": "[parameters('portalIdentityId')]"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "portal",
+              "image": "[format('{0}/mod/portal:{1}', parameters('acrLoginServer'), parameters('imageTag'))]",
+              "resources": {
+                "cpu": "[json('0.5')]",
+                "memory": "1Gi"
+              },
+              "env": [
+                {
+                  "name": "AZURE_CLIENT_ID",
+                  "value": "[parameters('portalClientId')]"
+                },
+                {
+                  "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                  "value": "[parameters('appInsightsConnectionString')]"
+                },
+                {
+                  "name": "ASPNETCORE_URLS",
+                  "value": "http://+:8080"
+                },
+                {
+                  "name": "MOD_ENVIRONMENT",
+                  "value": "[variables('modEnv')]"
+                },
+                {
+                  "name": "SQL_CONNECTION",
+                  "value": "[parameters('sqlConnectionString')]"
+                },
+                {
+                  "name": "KEYVAULT_URI",
+                  "value": "[parameters('kvUri')]"
+                },
+                {
+                  "name": "PORTAL_JWT_KEY",
+                  "secretRef": "portal-jwt-key"
+                },
+                {
+                  "name": "CMD_SB_FQDN",
+                  "value": "[parameters('cmdSbFqdn')]"
+                },
+                {
+                  "name": "SIM_SB_FQDN",
+                  "value": "[parameters('simSbFqdn')]"
+                },
+                {
+                  "name": "SIM_SB_SAS_KEY_NAME",
+                  "value": "sim-issuer"
+                },
+                {
+                  "name": "SIM_SB_SAS_KEY",
+                  "secretRef": "sim-sb-sas-key"
+                },
+                {
+                  "name": "EVENTHUB_FQDN",
+                  "value": "[parameters('ehFqdn')]"
+                },
+                {
+                  "name": "EVENTHUB_NAME",
+                  "value": "telemetry"
+                },
+                {
+                  "name": "EVENTHUB_CONSUMER_GROUP",
+                  "value": "processing"
+                },
+                {
+                  "name": "CHECKPOINT_BLOB_CONTAINER_URL",
+                  "value": "[parameters('checkpointBlobContainerUrl')]"
+                },
+                {
+                  "name": "PRODUCTION_SUBSCRIPTION_ID",
+                  "value": "[subscription().subscriptionId]"
+                },
+                {
+                  "name": "PRODUCTION_RESOURCE_GROUP",
+                  "value": "[resourceGroup().name]"
+                },
+                {
+                  "name": "INGEST_APP_NAME",
+                  "value": "ca-ingest"
+                },
+                {
+                  "name": "PROCESSING_APP_NAME",
+                  "value": "ca-processing"
+                },
+                {
+                  "name": "MANAGEMENT_APP_NAME",
+                  "value": "ca-mgmt"
+                },
+                {
+                  "name": "PORTAL_APP_NAME",
+                  "value": "ca-portal"
+                },
+                {
+                  "name": "REPORTING_APP_NAME",
+                  "value": "ca-reporting"
+                },
+                {
+                  "name": "CONTROLLER_SUBSCRIPTION_ID",
+                  "value": "[parameters('controllerSubscriptionId')]"
+                },
+                {
+                  "name": "CONTROLLER_RESOURCE_GROUP",
+                  "value": "[parameters('controllerResourceGroup')]"
+                },
+                {
+                  "name": "CONTROLLER_ENVIRONMENT_ID",
+                  "value": "[parameters('controllerEnvironmentId')]"
+                },
+                {
+                  "name": "CONTROLLER_LOCATION",
+                  "value": "[parameters('controllerLocation')]"
+                },
+                {
+                  "name": "COLLECTOR_IMAGE",
+                  "value": "[variables('collectorImage')]"
+                },
+                {
+                  "name": "COLLECTOR_PULL_IDENTITY_ID",
+                  "value": "[parameters('collectorPullIdentityId')]"
+                },
+                {
+                  "name": "MANAGEMENT_URL",
+                  "value": "[variables('managementUrl')]"
+                }
+              ],
+              "probes": [
+                {
+                  "type": "Liveness",
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  }
+                },
+                {
+                  "type": "Readiness",
+                  "httpGet": {
+                    "path": "/readyz",
+                    "port": 8080
+                  }
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": 1,
+            "maxReplicas": 1
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "ca-reporting",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', parameters('reportingIdentityId'))]": {}
+        }
+      },
+      "properties": {
+        "managedEnvironmentId": "[parameters('caeId')]",
+        "configuration": {
+          "ingress": {
+            "external": true,
+            "targetPort": 8080
+          },
+          "secrets": [
+            {
+              "name": "reporting-jwt-key",
+              "keyVaultUrl": "[parameters('reportingJwtKeySecretUri')]",
+              "identity": "[parameters('reportingIdentityId')]"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "reporting",
+              "image": "[format('{0}/mod/customer:{1}', parameters('acrLoginServer'), parameters('imageTag'))]",
+              "resources": {
+                "cpu": "[json('0.25')]",
+                "memory": "0.5Gi"
+              },
+              "env": [
+                {
+                  "name": "AZURE_CLIENT_ID",
+                  "value": "[parameters('reportingClientId')]"
+                },
+                {
+                  "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                  "value": "[parameters('appInsightsConnectionString')]"
+                },
+                {
+                  "name": "ASPNETCORE_URLS",
+                  "value": "http://+:8080"
+                },
+                {
+                  "name": "MOD_ENVIRONMENT",
+                  "value": "[variables('modEnv')]"
+                },
+                {
+                  "name": "SQL_CONNECTION",
+                  "value": "[parameters('sqlConnectionString')]"
+                },
+                {
+                  "name": "KEYVAULT_URI",
+                  "value": "[parameters('kvUri')]"
+                },
+                {
+                  "name": "REPORTING_JWT_KEY",
+                  "secretRef": "reporting-jwt-key"
+                },
+                {
+                  "name": "FRESHNESS_STALE_SECONDS",
+                  "value": "60"
+                },
+                {
+                  "name": "LIVE_POLL_SECONDS",
+                  "value": "2"
+                }
+              ],
+              "probes": [
+                {
+                  "type": "Liveness",
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  }
+                },
+                {
+                  "type": "Readiness",
+                  "httpGet": {
+                    "path": "/readyz",
+                    "port": 8080
+                  }
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": 0,
+            "maxReplicas": 1
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "ca-mgmt",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', parameters('managementIdentityId'))]": {}
+        }
+      },
+      "properties": {
+        "managedEnvironmentId": "[parameters('caeId')]",
+        "configuration": {
+          "ingress": {
+            "external": true,
+            "targetPort": 8080,
+            "clientCertificateMode": "accept"
+          },
+          "secrets": [
+            {
+              "name": "cmd-sb-sas-key",
+              "keyVaultUrl": "[parameters('cmdSbIssuerKeySecretUri')]",
+              "identity": "[parameters('managementIdentityId')]"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "management-api",
+              "image": "[format('{0}/mod/management-api:{1}', parameters('acrLoginServer'), parameters('imageTag'))]",
+              "resources": {
+                "cpu": "[json('0.25')]",
+                "memory": "0.5Gi"
+              },
+              "env": [
+                {
+                  "name": "AZURE_CLIENT_ID",
+                  "value": "[parameters('managementClientId')]"
+                },
+                {
+                  "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                  "value": "[parameters('appInsightsConnectionString')]"
+                },
+                {
+                  "name": "ASPNETCORE_URLS",
+                  "value": "http://+:8080"
+                },
+                {
+                  "name": "MOD_ENVIRONMENT",
+                  "value": "[variables('modEnv')]"
+                },
+                {
+                  "name": "SQL_CONNECTION",
+                  "value": "[parameters('sqlConnectionString')]"
+                },
+                {
+                  "name": "KEYVAULT_URI",
+                  "value": "[parameters('kvUri')]"
+                },
+                {
+                  "name": "CA_CERT_NAME",
+                  "value": "collector-ca"
+                },
+                {
+                  "name": "CERT_VALIDITY_DAYS",
+                  "value": "7"
+                },
+                {
+                  "name": "CMD_SB_FQDN",
+                  "value": "[parameters('cmdSbFqdn')]"
+                },
+                {
+                  "name": "CMD_SB_SAS_KEY_NAME",
+                  "value": "collector-issuer"
+                },
+                {
+                  "name": "CMD_SB_SAS_KEY",
+                  "secretRef": "cmd-sb-sas-key"
+                },
+                {
+                  "name": "INGEST_URL",
+                  "value": "[variables('ingestUrl')]"
+                },
+                {
+                  "name": "MANAGEMENT_URL",
+                  "value": "[variables('managementUrl')]"
+                },
+                {
+                  "name": "COMMAND_TOKEN_LIFETIME_MINUTES",
+                  "value": "60"
+                }
+              ],
+              "probes": [
+                {
+                  "type": "Liveness",
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  }
+                },
+                {
+                  "type": "Readiness",
+                  "httpGet": {
+                    "path": "/readyz",
+                    "port": 8080
+                  }
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": 1,
+            "maxReplicas": 2
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.App/jobs",
+      "apiVersion": "2024-03-01",
+      "name": "job-dbmigrate",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', parameters('migratorIdentityId'))]": {}
+        }
+      },
+      "properties": {
+        "environmentId": "[parameters('caeId')]",
+        "configuration": {
+          "triggerType": "Manual",
+          "replicaTimeout": 600,
+          "replicaRetryLimit": 0,
+          "secrets": [
+            {
+              "name": "admin-password",
+              "keyVaultUrl": "[format('{0}secrets/admin-password/', parameters('kvUri'))]",
+              "identity": "[parameters('migratorIdentityId')]"
+            },
+            {
+              "name": "customer-password",
+              "keyVaultUrl": "[format('{0}secrets/customer-password/', parameters('kvUri'))]",
+              "identity": "[parameters('migratorIdentityId')]"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "db-migrator",
+              "image": "[format('{0}/mod/db-migrator:{1}', parameters('acrLoginServer'), parameters('imageTag'))]",
+              "resources": {
+                "cpu": "[json('0.5')]",
+                "memory": "1Gi"
+              },
+              "env": [
+                {
+                  "name": "AZURE_CLIENT_ID",
+                  "value": "[parameters('migratorClientId')]"
+                },
+                {
+                  "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                  "value": "[parameters('appInsightsConnectionString')]"
+                },
+                {
+                  "name": "MOD_ENVIRONMENT",
+                  "value": "[variables('modEnv')]"
+                },
+                {
+                  "name": "SQL_CONNECTION",
+                  "value": "[parameters('sqlConnectionString')]"
+                },
+                {
+                  "name": "IDENTITY_INGEST_NAME",
+                  "value": "[variables('ingestIdName')]"
+                },
+                {
+                  "name": "IDENTITY_INGEST_OBJECT_ID",
+                  "value": "[parameters('ingestPrincipalId')]"
+                },
+                {
+                  "name": "IDENTITY_PROCESSING_NAME",
+                  "value": "[variables('processingIdName')]"
+                },
+                {
+                  "name": "IDENTITY_PROCESSING_OBJECT_ID",
+                  "value": "[parameters('processingPrincipalId')]"
+                },
+                {
+                  "name": "IDENTITY_MANAGEMENT_NAME",
+                  "value": "[variables('managementIdName')]"
+                },
+                {
+                  "name": "IDENTITY_MANAGEMENT_OBJECT_ID",
+                  "value": "[parameters('managementPrincipalId')]"
+                },
+                {
+                  "name": "IDENTITY_PORTAL_NAME",
+                  "value": "[variables('portalIdName')]"
+                },
+                {
+                  "name": "IDENTITY_PORTAL_OBJECT_ID",
+                  "value": "[parameters('portalPrincipalId')]"
+                },
+                {
+                  "name": "IDENTITY_REPORTING_NAME",
+                  "value": "[variables('reportingIdName')]"
+                },
+                {
+                  "name": "IDENTITY_REPORTING_OBJECT_ID",
+                  "value": "[parameters('reportingPrincipalId')]"
+                },
+                {
+                  "name": "DEVELOPER_PRINCIPALS",
+                  "value": "[parameters('developerPrincipals')]"
+                },
+                {
+                  "name": "SEED_DEMO_DATA",
+                  "value": "true"
+                },
+                {
+                  "name": "ADMIN_PASSWORD",
+                  "secretRef": "admin-password"
+                },
+                {
+                  "name": "CUSTOMER_PASSWORD",
+                  "secretRef": "customer-password"
+                }
+              ]
+            }
+          ],
+          "initContainers": [],
+          "volumes": []
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+<mat-sidenav-container class="sidenav-container">
+  <mat-sidenav mode="side" opened class="sidenav">
+    <div class="sidenav-header">
+      <span class="portal-title">MOD Admin</span>
+    </div>
+
+    <mat-nav-list>
+      <a mat-list-item routerLink="/tenants" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>business</mat-icon>
+        <span matListItemTitle>Tenants</span>
+      </a>
+      <a mat-list-item routerLink="/collectors" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>devices</mat-icon>
+        <span matListItemTitle>Collectors</span>
+      </a>
+      <a mat-list-item routerLink="/dead-letters" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>error_outline</mat-icon>
+        <span matListItemTitle>Dead Letters</span>
+      </a>
+      <a mat-list-item routerLink="/restatements" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>replay</mat-icon>
+        <span matListItemTitle>Restatements</span>
+      </a>
+      <a mat-list-item routerLink="/audit" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>history</mat-icon>
+        <span matListItemTitle>Audit</span>
+      </a>
+    </mat-nav-list>
+
+    <mat-divider />
+
+    <mat-nav-list>
+      <a mat-list-item routerLink="/simulation" routerLinkActive="active-link" class="simulator-link">
+        <mat-icon matListItemIcon>science</mat-icon>
+        <span matListItemTitle>Simulator</span>
+        <span matListItemMeta class="demo-badge">DEMO</span>
+      </a>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="main-content">
+    <mat-toolbar color="primary" class="top-toolbar">
+      <span class="spacer"></span>
+      <span class="user-name">{{ auth.user()?.name }}</span>
+      <button mat-icon-button (click)="auth.logout()" title="Sign out">
+        <mat-icon>logout</mat-icon>
+      </button>
+    </mat-toolbar>
+
+    <div class="content-area">
+      <router-outlet />
+    </div>
+  </mat-sidenav-content>
+</mat-sidenav-container>

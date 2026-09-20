@@ -1,0 +1,54 @@
+@if (loading()) {
+  <mat-spinner diameter="40" />
+} @else if (error()) {
+  <p class="error-msg">{{ error() }}</p>
+} @else {
+  @if (hierarchy(); as h) {
+  <div class="page-header">
+    <h1>{{ h.tenant.name }}</h1>
+    <button mat-stroked-button (click)="addSite()">
+      <mat-icon>add</mat-icon> Add Site
+    </button>
+  </div>
+
+  @for (site of h.sites; track site.siteId) {
+    <mat-expansion-panel class="site-panel">
+      <mat-expansion-panel-header>
+        <mat-panel-title>{{ site.name }}</mat-panel-title>
+        <mat-panel-description>{{ site.regionLabel }} · {{ site.timeZone }}</mat-panel-description>
+      </mat-expansion-panel-header>
+
+      <div class="panel-actions">
+        <button mat-stroked-button (click)="addLine(site.siteId)">
+          <mat-icon>add</mat-icon> Add Line
+        </button>
+      </div>
+
+      @for (line of site.lines; track line.lineId) {
+        <mat-expansion-panel class="line-panel">
+          <mat-expansion-panel-header>
+            <mat-panel-title>{{ line.name }}</mat-panel-title>
+            <mat-panel-description>{{ line.assets.length }} asset(s)</mat-panel-description>
+          </mat-expansion-panel-header>
+
+          <div class="panel-actions">
+            <button mat-stroked-button (click)="addAsset(line.lineId)">
+              <mat-icon>add</mat-icon> Add Asset
+            </button>
+          </div>
+
+          <mat-list>
+            @for (asset of line.assets; track asset.assetId) {
+              <mat-list-item>
+                <mat-icon matListItemIcon>memory</mat-icon>
+                <span matListItemTitle>{{ asset.name }}</span>
+                <span matListItemLine>{{ asset.assetType }} · {{ asset.processValueName }} ({{ asset.processValueUnit }})</span>
+              </mat-list-item>
+            }
+          </mat-list>
+        </mat-expansion-panel>
+      }
+    </mat-expansion-panel>
+  }
+  }
+}

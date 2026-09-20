@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/Mod.Platform.Common/Mod.Platform.Common.csproj" />
+  <Project Path="src/Mod.DbMigrator/Mod.DbMigrator.csproj" />
+  <Project Path="src/Mod.IngestApi/Mod.IngestApi.csproj" />
+  <Project Path="src/Mod.ManagementApi/Mod.ManagementApi.csproj" />
+  <Project Path="src/Mod.Processing/Mod.Processing.csproj" />
+</Solution>

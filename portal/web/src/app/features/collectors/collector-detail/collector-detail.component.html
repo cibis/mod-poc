@@ -1,0 +1,149 @@
+@if (loading()) {
+  <mat-spinner diameter="40" />
+} @else if (error()) {
+  <p class="error-msg">{{ error() }}</p>
+} @else {
+  @if (detail(); as d) {
+  <div class="page-header">
+    <h1>{{ d.name }}</h1>
+    <span class="spacer"></span>
+    <button mat-stroked-button (click)="openToken()"><mat-icon>vpn_key</mat-icon> Enrolment Token</button>
+    <button mat-stroked-button color="warn" (click)="openRevoke()"><mat-icon>block</mat-icon> Revoke</button>
+  </div>
+
+  <mat-tab-group>
+    <!-- Identity -->
+    <mat-tab label="Identity">
+      <div class="tab-content">
+        <p><strong>Collector ID:</strong> {{ d.collectorId }}</p>
+        <p><strong>Tenant:</strong> {{ d.tenantName }}</p>
+        <p><strong>Site:</strong> {{ d.siteName }}</p>
+        <p><strong>Region:</strong> {{ d.regionLabel }}</p>
+        <p><strong>Status:</strong> {{ d.status }}</p>
+        <p><strong>Last seen:</strong> {{ d.lastSeenAt ?? '—' }}</p>
+        <p><strong>Software version:</strong> {{ d.softwareVersion ?? '—' }}</p>
+        @if (d.latestHealth; as h) {
+          <mat-divider />
+          <h3>Latest Health</h3>
+          <p><strong>Buffer depth:</strong> {{ h.bufferDepthEvents }} / {{ h.bufferCapacityEvents }} events</p>
+          <p><strong>Overflow dropped total:</strong> {{ h.overflowDroppedTotal }}</p>
+        }
+      </div>
+    </mat-tab>
+
+    <!-- Certificates -->
+    <mat-tab label="Certificates">
+      <div class="tab-content">
+        <table mat-table [dataSource]="d.certificates" class="full-width">
+          <ng-container matColumnDef="issuedAt">
+            <th mat-header-cell *matHeaderCellDef>Issued</th>
+            <td mat-cell *matCellDef="let c">{{ c.issuedAt | slice:0:19 }}</td>
+          </ng-container>
+          <ng-container matColumnDef="expiresAt">
+            <th mat-header-cell *matHeaderCellDef>Expires</th>
+            <td mat-cell *matCellDef="let c">{{ c.expiresAt | slice:0:19 }}</td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let c">{{ c.status }}</td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="certColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: certColumns;"></tr>
+        </table>
+      </div>
+    </mat-tab>
+
+    <!-- Buffer History -->
+    <mat-tab label="Buffer History">
+      <div class="tab-content chart-wrap">
+        <div echarts [options]="healthChartOption()" style="height:300px"></div>
+      </div>
+    </mat-tab>
+
+    <!-- Reconciliation -->
+    <mat-tab label="Reconciliation">
+      <div class="tab-content">
+        <table mat-table [dataSource]="d.reconciliation" class="full-width">
+          <ng-container matColumnDef="minuteAt">
+            <th mat-header-cell *matHeaderCellDef>Minute</th>
+            <td mat-cell *matCellDef="let r">{{ r.minuteAt | slice:0:19 }}</td>
+          </ng-container>
+          <ng-container matColumnDef="produced">
+            <th mat-header-cell *matHeaderCellDef>Produced</th>
+            <td mat-cell *matCellDef="let r">{{ r.produced }}</td>
+          </ng-container>
+          <ng-container matColumnDef="accepted">
+            <th mat-header-cell *matHeaderCellDef>Accepted</th>
+            <td mat-cell *matCellDef="let r">{{ r.accepted }}</td>
+          </ng-container>
+          <ng-container matColumnDef="deadLettered">
+            <th mat-header-cell *matHeaderCellDef>Dead-lettered</th>
+            <td mat-cell *matCellDef="let r">{{ r.deadLettered }}</td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="reconcColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: reconcColumns;"></tr>
+        </table>
+      </div>
+    </mat-tab>
+
+    <!-- Config -->
+    <mat-tab label="Config">
+      <div class="tab-content">
+        <form [formGroup]="configForm">
+          <mat-slide-toggle formControlName="commandChannelEnabled">Command Channel Enabled</mat-slide-toggle>
+          <mat-form-field class="full-width">
+            <mat-label>Batching (JSON)</mat-label>
+            <textarea matInput formControlName="batchingJson" rows="4"></textarea>
+          </mat-form-field>
+          <mat-form-field class="full-width">
+            <mat-label>Forwarder (JSON)</mat-label>
+            <textarea matInput formControlName="forwarderJson" rows="4"></textarea>
+          </mat-form-field>
+          <mat-form-field class="full-width">
+            <mat-label>Buffer (JSON)</mat-label>
+            <textarea matInput formControlName="bufferJson" rows="4"></textarea>
+          </mat-form-field>
+          <mat-form-field class="full-width">
+            <mat-label>Intervals (JSON)</mat-label>
+            <textarea matInput formControlName="intervalsJson" rows="4"></textarea>
+          </mat-form-field>
+          <button mat-flat-button color="primary" (click)="saveConfig()">Save Config</button>
+        </form>
+      </div>
+    </mat-tab>
+
+    <!-- Mappings -->
+    <mat-tab label="Mappings">
+      <div class="tab-content">
+        <table mat-table [dataSource]="d.mappings" class="full-width">
+          <ng-container matColumnDef="sourceId">
+            <th mat-header-cell *matHeaderCellDef>Source ID</th>
+            <td mat-cell *matCellDef="let m">{{ m.sourceId }}</td>
+          </ng-container>
+          <ng-container matColumnDef="assetName">
+            <th mat-header-cell *matHeaderCellDef>Asset</th>
+            <td mat-cell *matCellDef="let m">{{ m.assetName }}</td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="mappingColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: mappingColumns;"></tr>
+        </table>
+      </div>
+    </mat-tab>
+
+    <!-- Commands -->
+    <mat-tab label="Commands">
+      <div class="tab-content">
+        <div class="command-buttons">
+          @for (cmd of ['GetStats','GetDiagnostics','ReloadConfig','Restart']; track cmd) {
+            <button mat-stroked-button (click)="sendCommand(cmd)" [disabled]="commandRunning()">{{ cmd }}</button>
+          }
+          @if (commandRunning()) { <mat-spinner diameter="24" /> }
+        </div>
+        @if (commandResult()) {
+          <pre class="json-view">{{ commandResult() }}</pre>
+        }
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+  }
+}

@@ -1,0 +1,42 @@
+@use '@angular/material' as mat;
+
+html {
+  @include mat.theme(
+    (
+      color: (
+        theme-type: light,
+        primary: mat.$azure-palette,
+        tertiary: mat.$blue-palette,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+pre.json-view {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 4px;
+  overflow: auto;
+  font-size: 0.85em;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

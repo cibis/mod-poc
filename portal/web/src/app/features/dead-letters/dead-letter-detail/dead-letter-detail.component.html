@@ -1,0 +1,24 @@
+@if (loading()) {
+  <mat-spinner diameter="40" />
+} @else if (error()) {
+  <p class="error-msg">{{ error() }}</p>
+} @else {
+  @if (item(); as d) {
+  <div class="page-header">
+    <h1>Dead Letter</h1>
+    <span class="spacer"></span>
+    <button mat-stroked-button (click)="replay()"><mat-icon>replay</mat-icon> Replay</button>
+    <button mat-stroked-button color="warn" (click)="discard()"><mat-icon>delete</mat-icon> Discard</button>
+  </div>
+  <p><strong>ID:</strong> {{ d.id }}</p>
+  <p><strong>Reason:</strong> {{ d.reasonCode }}</p>
+  <p><strong>Status:</strong> {{ d.status }}</p>
+  <p><strong>Collector:</strong> {{ d.collectorName }} ({{ d.collectorId }})</p>
+  <p><strong>Tenant:</strong> {{ d.tenantId }}</p>
+  <p><strong>Received:</strong> {{ d.receivedAt }}</p>
+  @if (formattedJson()) {
+    <h3>Event JSON</h3>
+    <pre class="json-view">{{ formattedJson() }}</pre>
+  }
+  }
+}

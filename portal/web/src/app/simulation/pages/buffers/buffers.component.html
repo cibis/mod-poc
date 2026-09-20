@@ -1,0 +1,32 @@
+<!-- DEMO SCAFFOLDING -->
+@if (store.loading()) {
+  <div class="center-spinner"><mat-spinner diameter="40" /></div>
+} @else if (!poweredCollectors().length) {
+  <p class="muted">No powered collectors. Power on collectors from the Fleet tab.</p>
+} @else {
+  <div class="buffers-grid">
+    @for (c of poweredCollectors(); track c.collectorId) {
+      <mat-card class="buf-card">
+        <mat-card-header>
+          <mat-card-title>{{ c.name }}</mat-card-title>
+          <mat-card-subtitle>{{ c.siteName }} · {{ c.regionLabel }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (c.bufferOverflowEver) {
+            <div class="overflow-banner">OVERFLOWED</div>
+          }
+
+          <div echarts [options]="gaugeOptions(c)" class="gauge-chart"></div>
+
+          <div class="buf-meta">
+            <span>Link: <strong [class.link-down]="!c.simStatus?.linkUp">{{ linkState(c) }}</strong></span>
+            <span>Drain: <strong>{{ drainRate(c) }}</strong></span>
+          </div>
+
+          <div class="sparkline-label">Buffer depth ({{ store.windowMinutes() }} min)</div>
+          <div echarts [options]="sparklineOptions(c)" class="sparkline-chart"></div>
+        </mat-card-content>
+      </mat-card>
+    }
+  </div>
+}

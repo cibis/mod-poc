@@ -1,0 +1,90 @@
+<!-- DEMO SCAFFOLDING -->
+@if (store.loading() || scenariosLoading()) {
+  <div class="center-spinner"><mat-spinner diameter="40" /></div>
+} @else {
+  <!-- Active run progress -->
+  @if (activeRun(); as run) {
+    <mat-card class="active-run-card">
+      <mat-card-header>
+        <mat-card-title>Running: {{ run.name }}</mat-card-title>
+        <mat-card-subtitle>Elapsed: {{ elapsed(run) }}</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @if (run.currentStep) {
+          <p class="current-step"><mat-icon inline>play_arrow</mat-icon> {{ run.currentStep }}</p>
+        }
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-flat-button color="warn" (click)="stopRun()">Stop</button>
+      </mat-card-actions>
+    </mat-card>
+  }
+
+  @if (runError()) { <p class="run-error">{{ runError() }}</p> }
+
+  <!-- Scenario list -->
+  <div class="scenarios-list">
+    @for (sc of scenarios(); track sc.name) {
+      <mat-card class="scenario-card">
+        <mat-card-header>
+          <mat-card-title>{{ sc.name }}</mat-card-title>
+          <mat-card-subtitle>~{{ sc.durationSeconds }}s</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="scenario-desc">{{ sc.description }}</p>
+
+          @if (sc.parameters.length > 0) {
+            <form [formGroup]="formFor(sc.name)!" class="param-form">
+              @for (p of sc.parameters; track p.name) {
+                <mat-form-field class="param-field">
+                  <mat-label>{{ p.name }}</mat-label>
+                  <input matInput [formControlName]="p.name" />
+                </mat-form-field>
+              }
+            </form>
+          }
+        </mat-card-content>
+        <mat-card-actions>
+          <button mat-flat-button color="primary"
+            (click)="runScenario(sc)"
+            [disabled]="!!activeRun() || runBusy()">
+            Run
+          </button>
+        </mat-card-actions>
+      </mat-card>
+    }
+  </div>
+
+  <!-- History table -->
+  <h3 class="section-title">Run history</h3>
+  @if (historyRuns().length === 0) {
+    <p class="muted">No completed runs.</p>
+  } @else {
+    <table mat-table [dataSource]="historyRuns()" class="history-table">
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Scenario</th>
+        <td mat-cell *matCellDef="let r">{{ r.name }}</td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let r">
+          <span class="run-status" [class]="'run-' + r.status">{{ r.status }}</span>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="startedAt">
+        <th mat-header-cell *matHeaderCellDef>Started</th>
+        <td mat-cell *matCellDef="let r">{{ formatDate(r.startedAt) }}</td>
+      </ng-container>
+      <ng-container matColumnDef="endedAt">
+        <th mat-header-cell *matHeaderCellDef>Ended</th>
+        <td mat-cell *matCellDef="let r">{{ formatDate(r.endedAt) }}</td>
+      </ng-container>
+      <ng-container matColumnDef="duration">
+        <th mat-header-cell *matHeaderCellDef>Duration</th>
+        <td mat-cell *matCellDef="let r">{{ elapsed(r) }}</td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="historyColumns"></tr>
+      <tr mat-row *matRowDef="let r; columns: historyColumns;"></tr>
+    </table>
+  }
+}

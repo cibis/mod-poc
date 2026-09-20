@@ -1,0 +1,52 @@
+.center-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 60px 0;
+}
+
+.muted { color: #9e9e9e; }
+
+.buffers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.buf-card { position: relative; }
+
+.overflow-banner {
+  background: #c62828;
+  color: white;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 3px;
+  border-radius: 3px;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.gauge-chart {
+  width: 100%;
+  height: 160px;
+}
+
+.buf-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  margin: 4px 0;
+}
+
+.link-down { color: #c62828; }
+
+.sparkline-label {
+  font-size: 0.75rem;
+  color: #9e9e9e;
+  margin-top: 8px;
+}
+
+.sparkline-chart {
+  width: 100%;
+  height: 60px;
+}

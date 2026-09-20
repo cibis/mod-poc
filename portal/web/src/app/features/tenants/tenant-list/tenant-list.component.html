@@ -1,0 +1,48 @@
+<div class="page-header">
+  <h1>Tenants</h1>
+  <button mat-flat-button color="primary" (click)="openCreate()">
+    <mat-icon>add</mat-icon> New Tenant
+  </button>
+</div>
+
+@if (loading()) {
+  <mat-spinner diameter="40" />
+} @else if (error()) {
+  <p class="error-msg">{{ error() }}</p>
+} @else {
+  <table mat-table [dataSource]="tenants()" class="full-width mat-elevation-z2">
+    <ng-container matColumnDef="name">
+      <th mat-header-cell *matHeaderCellDef>Name</th>
+      <td mat-cell *matCellDef="let t">{{ t.name }}</td>
+    </ng-container>
+    <ng-container matColumnDef="slug">
+      <th mat-header-cell *matHeaderCellDef>Slug</th>
+      <td mat-cell *matCellDef="let t">{{ t.slug }}</td>
+    </ng-container>
+    <ng-container matColumnDef="isolationMode">
+      <th mat-header-cell *matHeaderCellDef>Isolation</th>
+      <td mat-cell *matCellDef="let t">{{ t.isolationMode }}</td>
+    </ng-container>
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef>Status</th>
+      <td mat-cell *matCellDef="let t">{{ t.status }}</td>
+    </ng-container>
+    <ng-container matColumnDef="siteCount">
+      <th mat-header-cell *matHeaderCellDef>Sites</th>
+      <td mat-cell *matCellDef="let t">{{ t.siteCount }}</td>
+    </ng-container>
+    <ng-container matColumnDef="collectorCount">
+      <th mat-header-cell *matHeaderCellDef>Collectors</th>
+      <td mat-cell *matCellDef="let t">{{ t.collectorCount }}</td>
+    </ng-container>
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let t">
+        <button mat-icon-button (click)="openDetail(t)"><mat-icon>chevron_right</mat-icon></button>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="columns"></tr>
+    <tr mat-row *matRowDef="let row; columns: columns;" class="clickable-row" (click)="openDetail(row)"></tr>
+  </table>
+}

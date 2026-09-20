@@ -1,0 +1,20 @@
+<!-- DEMO SCAFFOLDING -->
+<div class="sim-area">
+  <div class="hazard-stripe"></div>
+  <div class="demo-banner">
+    <mat-icon class="banner-icon">science</mat-icon>
+    SIMULATOR — demo scaffolding, operates outside the modelled network boundary
+    <span class="hub-state" [class]="'hub-' + store.hubState()">{{ store.hubState() }}</span>
+  </div>
+
+  <nav class="sim-nav">
+    <a routerLink="/simulation" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Overview</a>
+    <a routerLink="/simulation/fleet" routerLinkActive="active">Fleet</a>
+    <a routerLink="/simulation/buffers" routerLinkActive="active">Buffers</a>
+    <a routerLink="/simulation/scenarios" routerLinkActive="active">Scenarios</a>
+  </nav>
+
+  <div class="sim-content">
+    <router-outlet />
+  </div>
+</div>

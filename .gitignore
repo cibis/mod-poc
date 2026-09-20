@@ -1,0 +1,27 @@
+# ---- Secrets and local environment: never commit ----
+.env
+.env.*
+*.env.local
+!.env.example
+!.env.*.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+secrets/
+.azure/
+infra/.state/
+**/appsettings.*.local.json
+.claude/settings.local.json
+
+# ---- Build output and tooling ----
+bin/
+obj/
+node_modules/
+dist/
+.angular/
+*.user
+.vs/
+.vscode/
+.idea/
