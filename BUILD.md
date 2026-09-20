@@ -375,6 +375,103 @@ Record the restart time in `infra/README.md`. Check that each module's README li
 
 After the first deploy you can run the processing worker, the portal and the customer app on your machine against the deployed environment. Follow `SETUP.md`, section "Run a module locally"; it uses `infra/scripts/local-env.sh` to write git-ignored `.env*.local` files.
 
+## Redeploying after a code change
+
+`up.sh` is idempotent — rerunning it rebuilds and redeploys only what changed. Bicep deployments are incremental so infrastructure steps are no-ops; only the affected Container Apps are updated. A redeployment typically takes **5–8 minutes**.
+
+### 1. Commit your changes
+
+The image tag is derived from the git short SHA (`git rev-parse --short HEAD`), so you must commit before redeploying — otherwise the tag does not change and the Container App will not pick up new code.
+
+```bash
+git add -A && git commit -m "<module>: <description>"
+```
+
+### 2. Rerun up.sh
+
+```bash
+infra/scripts/up.sh --prefix modpoc
+```
+
+This will, in order:
+
+1. Skip or fast-path all infrastructure steps that are already up to date.
+2. Rebuild all images in parallel in ACR (tagged with the new commit SHA):
+
+   | Image | Module | Dockerfile |
+   |---|---|---|
+   | `mod/ingest-api` | platform | `platform/docker/ingest-api.Dockerfile` |
+   | `mod/management-api` | platform | `platform/docker/management-api.Dockerfile` |
+   | `mod/processing` | platform | `platform/docker/processing.Dockerfile` |
+   | `mod/db-migrator` | platform | `platform/docker/db-migrator.Dockerfile` |
+   | `mod/collector` | edge | `edge/Dockerfile` |
+   | `mod/portal` | portal | `portal/Dockerfile` |
+   | `mod/customer` | customer | `customer/Dockerfile` |
+
+3. Redeploy `production/apps.bicep` — Container Apps pull the new image tag and restart.
+
+### Redeploying a single module (faster)
+
+If only one module changed you can trigger just its ACR build and then rerun `up.sh`. The build itself can be kicked off manually before rerunning the script:
+
+```bash
+# Example: only platform changed
+ACR_NAME=<acr-name>         # printed by up.sh, also saved in infra/.state/state.json
+TAG=$(git rev-parse --short HEAD)
+
+az acr build --registry "$ACR_NAME" \
+  --image "mod/ingest-api:$TAG" \
+  --file "platform/docker/ingest-api.Dockerfile" \
+  platform/
+
+# then redeploy
+infra/scripts/up.sh --prefix modpoc
+```
+
+The ACR name and other deployment outputs are saved to `infra/.state/state.json` (git-ignored) after the first `up.sh` run.
+
+---
+
+## Fixing and redeploying Bicep
+
+If `up.sh` fails with a deployment error, fix the Bicep, then rerun `up.sh`. Because deployments are incremental, only the failed resources will be retried — successfully deployed resources are skipped.
+
+### Workflow
+
+1. Read the error — the `code` and `message` fields identify the exact resource and property that failed.
+2. Fix the relevant `.bicep` file in `infra/`.
+3. Validate locally (catches syntax and type errors before hitting Azure):
+   ```bash
+   az bicep build --file infra/production/core.bicep
+   az bicep build --file infra/controller/main.bicep
+   az bicep build --file infra/production/apps.bicep
+   ```
+4. Rerun:
+   ```bash
+   infra/scripts/up.sh --prefix modpoc
+   ```
+
+### Common errors and fixes
+
+| Error code | Cause | Fix |
+|---|---|---|
+| `RoleDefinitionDoesNotExist` | Wrong built-in role GUID in Bicep | Look up the correct GUID with `az role definition list --name "<role name>" --query "[].name" -o tsv` and update the variable in the Bicep file |
+| `BadRequest: enablePurgeProtection cannot be set to false` | Bicep explicitly sets `enablePurgeProtection: false` on a vault that was previously created with it enabled (or Azure rejects the explicit false) | Remove the `enablePurgeProtection: false` line — Azure defaults to false so the property is not needed |
+| `ParentResourceNotFound` on Service Bus auth rules | Service Bus namespace failed to deploy, so child resources were attempted against a non-existent parent | Fix the root cause (usually another error earlier in the same deployment); the Service Bus error resolves itself |
+| `ResourceGroupNotFound` | Resource group was deleted between runs | Rerun `up.sh` — it recreates the groups before deploying |
+
+### Checking what actually deployed
+
+To inspect which operations succeeded or failed in a deployment:
+
+```bash
+az deployment group list --resource-group rg-modpoc-prod --query "[0].name" -o tsv | \
+  xargs -I{} az deployment group operation list --resource-group rg-modpoc-prod --name {} \
+  --query "[?properties.provisioningState!='Succeeded'].{resource:properties.targetResource.resourceType,state:properties.provisioningState,error:properties.statusMessage.error.code}" -o table
+```
+
+---
+
 ## If Claude reports a contract problem
 
 Stop that step. At the repository root run `claude`, fix the file in `contracts/`, and commit it. Then repeat the affected steps for every module that uses that contract (see the contract index in the root `CLAUDE.md`).

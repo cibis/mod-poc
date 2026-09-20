@@ -6,6 +6,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
+# ── Tee output to timestamped log ─────────────────────────────────────────────
+_LOG_FILE="$REPO_ROOT/tmp/up-$(date +%Y%m%d-%H%M%S).log"
+mkdir -p "$REPO_ROOT/tmp"
+exec > >(tee "$_LOG_FILE") 2>&1
+echo "Logging to $_LOG_FILE"
+
+# Force UTF-8 in the Azure CLI Python runtime (prevents cp1252 encode errors
+# when ACR build log output contains unicode characters from Angular CLI)
+
 # ── Arg parsing ──────────────────────────────────────────────────────────────
 
 PREFIX="$DEFAULT_PREFIX"
@@ -74,7 +83,7 @@ CORE_OUT=$(az deployment group create \
   --resource-group "$(rg_prod)" \
   --name "core-${PREFIX}" \
   --template-file "$SCRIPT_DIR/../production/core.bicep" \
-  --parameters prefix="$PREFIX" suffix="$SUFFIX" location="$PRODUCTION_LOCATION" \
+  --parameters prefix="$PREFIX" suffix="$SUFFIX" location="$PRODUCTION_LOCATION" deployerObjectId="$(az ad signed-in-user show --query id -o tsv 2>/dev/null || true)" \
   --query properties.outputs \
   --output json)
 
@@ -119,23 +128,18 @@ ACR_NAME="${ACR_LOGIN_SERVER%%.*}"
 
 KV_SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$(rg_prod)/providers/Microsoft.KeyVault/vaults/$KV_NAME"
 
-info "Granting Key Vault Secrets Officer to deployer..."
-DEPLOYER_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv 2>/dev/null || true)
-if [[ -n "$DEPLOYER_OBJECT_ID" ]]; then
-  az role assignment create \
-    --role "Key Vault Secrets Officer" \
-    --assignee-object-id "$DEPLOYER_OBJECT_ID" \
-    --assignee-principal-type User \
-    --scope "$KV_SCOPE" \
-    --output none 2>/dev/null || true
-fi
-
 create_secret_if_absent() {
   local vault="$1" name="$2" value="$3"
   az keyvault secret show --vault-name "$vault" --name "$name" \
-    --query id -o tsv 2>/dev/null | grep -q . \
-    || az keyvault secret set --vault-name "$vault" --name "$name" \
-         --value "$value" --output none
+    --query id -o tsv 2>/dev/null | grep -q . && return 0
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    az keyvault secret set --vault-name "$vault" --name "$name" \
+      --value "$value" --output none 2>/dev/null && return 0
+    warn "Secret '$name' write attempt $attempt failed (RBAC propagation delay); retrying in 30 s..."
+    sleep 30
+  done
+  die "Failed to write secret '$name' after 5 attempts"
 }
 
 info "Creating Key Vault secrets (if absent)..."
@@ -167,11 +171,17 @@ create_collector_ca_if_absent() {
     secretProperties: {contentType:"application/x-pem-file"}
   }')
   info "Creating collector CA certificate..."
-  az keyvault certificate create \
-    --vault-name "$vault" \
-    --name collector-ca \
-    --policy "$policy" \
-    --output none
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    az keyvault certificate create \
+      --vault-name "$vault" \
+      --name collector-ca \
+      --policy "$policy" \
+      --output none 2>/dev/null && break
+    warn "Certificate create attempt $attempt failed (RBAC propagation delay); retrying in 30 s..."
+    sleep 30
+    [[ $attempt -eq 5 ]] && die "Failed to create collector-ca certificate after 5 attempts"
+  done
   local _status
   for _i in $(seq 1 30); do
     _status=$(az keyvault certificate show \
@@ -185,9 +195,13 @@ create_collector_ca_if_absent() {
 
 info "Ensuring collector CA certificate..."
 create_collector_ca_if_absent "$KV_NAME"
-COLLECTOR_CA_PEM_B64=$(az keyvault certificate download \
+_ca_tmp=$(mktemp)
+rm -f "$_ca_tmp"
+az keyvault certificate download \
   --vault-name "$KV_NAME" --name collector-ca --encoding PEM \
-  --file /dev/stdout 2>/dev/null | base64 -w0)
+  --file "$_ca_tmp"
+COLLECTOR_CA_PEM_B64=$(base64 -w0 < "$_ca_tmp")
+rm -f "$_ca_tmp"
 
 # ── Step 7: Developer access ──────────────────────────────────────────────────
 
@@ -246,48 +260,63 @@ info "Building images with tag: $IMAGE_TAG"
 
 declare -a BUILD_PIDS=()
 
+# az acr build exits non-zero on Windows due to a colorama/CP1252 encoding bug
+# when streaming Docker log output that contains unicode characters (e.g. Angular
+# CLI progress glyphs). The remote ACR build succeeds regardless. We use || true
+# to absorb the spurious exit code and verify success by checking ACR directly.
 az acr build --registry "$ACR_NAME" \
   --image "mod/ingest-api:$IMAGE_TAG" \
   --file "platform/docker/ingest-api.Dockerfile" \
-  "$REPO_ROOT/platform" &
+  "$REPO_ROOT/platform" || true &
 BUILD_PIDS+=($!)
 
 az acr build --registry "$ACR_NAME" \
   --image "mod/management-api:$IMAGE_TAG" \
   --file "platform/docker/management-api.Dockerfile" \
-  "$REPO_ROOT/platform" &
+  "$REPO_ROOT/platform" || true &
 BUILD_PIDS+=($!)
 
 az acr build --registry "$ACR_NAME" \
   --image "mod/processing:$IMAGE_TAG" \
   --file "platform/docker/processing.Dockerfile" \
-  "$REPO_ROOT/platform" &
+  "$REPO_ROOT/platform" || true &
 BUILD_PIDS+=($!)
 
 az acr build --registry "$ACR_NAME" \
   --image "mod/db-migrator:$IMAGE_TAG" \
   --file "platform/docker/db-migrator.Dockerfile" \
-  "$REPO_ROOT/platform" &
+  "$REPO_ROOT/platform" || true &
 BUILD_PIDS+=($!)
 
 az acr build --registry "$ACR_NAME" \
   --image "mod/collector:$IMAGE_TAG" \
-  "$REPO_ROOT/edge" &
+  "$REPO_ROOT/edge" || true &
 BUILD_PIDS+=($!)
 
 az acr build --registry "$ACR_NAME" \
   --image "mod/portal:$IMAGE_TAG" \
-  "$REPO_ROOT/portal" &
+  "$REPO_ROOT/portal" || true &
 BUILD_PIDS+=($!)
 
 az acr build --registry "$ACR_NAME" \
   --image "mod/customer:$IMAGE_TAG" \
-  "$REPO_ROOT/customer" &
+  "$REPO_ROOT/customer" || true &
 BUILD_PIDS+=($!)
 
 info "Waiting for all image builds..."
 wait "${BUILD_PIDS[@]}"
-info "All images built."
+
+# Verify every image was actually pushed to ACR
+_missing=()
+for _img in ingest-api management-api processing db-migrator collector portal customer; do
+  az acr manifest list-metadata --registry "$ACR_NAME" --name "mod/$_img" \
+    --query "[?tags[?@=='$IMAGE_TAG']]" -o tsv 2>/dev/null | grep -q . \
+    || _missing+=("mod/$_img:$IMAGE_TAG")
+done
+if [[ ${#_missing[@]} -gt 0 ]]; then
+  die "The following images failed to build: ${_missing[*]}"
+fi
+info "All images built and pushed."
 
 # ── Step 9: Deploy controller/main.bicep ─────────────────────────────────────
 
@@ -312,10 +341,12 @@ COLLECTOR_PULL_IDENTITY_ID=$(printf '%s' "$CTRL_OUT" | jq -r '.collectorPullIden
 # ── Step 10: Deploy production/apps.bicep ────────────────────────────────────
 
 info "Deploying production/apps.bicep..."
-az deployment group create \
+_apps_bicep=$(cygpath -w "$SCRIPT_DIR/../production/apps.bicep" 2>/dev/null \
+  || echo "$SCRIPT_DIR/../production/apps.bicep")
+MSYS_NO_PATHCONV=1 az deployment group create \
   --resource-group "$(rg_prod)" \
   --name "apps-${PREFIX}" \
-  --template-file "$SCRIPT_DIR/../production/apps.bicep" \
+  --template-file "$_apps_bicep" \
   --parameters \
     imageTag="$IMAGE_TAG" \
     caeId="$CAE_ID" \

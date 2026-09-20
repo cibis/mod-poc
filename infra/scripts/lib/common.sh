@@ -51,8 +51,10 @@ register_providers() {
     Microsoft.KeyVault Microsoft.ContainerRegistry Microsoft.OperationalInsights
     Microsoft.Insights Microsoft.Storage
   )
+  local pids=()
   for p in "${providers[@]}"; do
     az provider register --namespace "$p" --output none &
+    pids+=($!)
   done
-  wait
+  wait "${pids[@]}"
 }

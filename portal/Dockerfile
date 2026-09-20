@@ -4,7 +4,7 @@ WORKDIR /src/web
 COPY web/package*.json ./
 RUN npm ci
 COPY web/ ./
-RUN npx ng build admin-portal --configuration production
+RUN node node_modules/@angular/cli/bin/ng.js build admin-portal --configuration production
 
 # Stage 2: Publish .NET API
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS api-build

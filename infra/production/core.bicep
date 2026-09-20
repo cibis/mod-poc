@@ -3,14 +3,15 @@ param prefix string = 'modpoc'
 @maxLength(8)
 param suffix string
 param location string = resourceGroup().location
+param deployerObjectId string = ''
 
 // ── role definition IDs ───────────────────────────────────────────────────────
 var acrPullRoleId                = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
-var ehDataSenderRoleId           = '2b629674-e913-4545-959b-5c63d900ca6f'
+var ehDataSenderRoleId           = '2b629674-e913-4c01-ae53-ef4638d8f975'
 var ehDataReceiverRoleId         = 'a638d3c7-ab3a-418d-83e6-5f17a39d4fde'
 var storageBlobContribRoleId     = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
 var storageBlobReaderRoleId      = '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
-var kvSecretsUserRoleId          = '4633458b-17de-408a-b874-0445c86b69e0'
+var kvSecretsUserRoleId          = '4633458b-17de-408a-b874-0445c86b69e6'
 var sbDataOwnerRoleId            = '090c5cfd-751d-490a-894a-3ce6f1109419'
 var readerRoleId                 = 'acdd72a7-3385-48ef-bd42-f606fba81ae7'
 
@@ -317,6 +318,31 @@ resource kvSecretsMigrator 'Microsoft.Authorization/roleAssignments@2022-04-01' 
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', kvSecretsUserRoleId)
     principalId: identities.outputs.migratorPrincipalId
     principalType: 'ServicePrincipal'
+  }
+  dependsOn: [kv]
+}
+
+var kvSecretsOfficerRoleId      = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
+var kvCertificatesOfficerRoleId = 'a4417e6f-fecd-4de8-b567-7b0420556985'
+
+resource kvSecretsOfficerDeployer 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(deployerObjectId)) {
+  scope: kvRef
+  name: guid(kvResId, deployerObjectId, kvSecretsOfficerRoleId)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', kvSecretsOfficerRoleId)
+    principalId: deployerObjectId
+    principalType: 'User'
+  }
+  dependsOn: [kv]
+}
+
+resource kvCertificatesOfficerDeployer 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(deployerObjectId)) {
+  scope: kvRef
+  name: guid(kvResId, deployerObjectId, kvCertificatesOfficerRoleId)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', kvCertificatesOfficerRoleId)
+    principalId: deployerObjectId
+    principalType: 'User'
   }
   dependsOn: [kv]
 }
