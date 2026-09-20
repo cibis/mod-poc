@@ -1,0 +1,26 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  .poc-banner {
+    font-weight: 500;
+  }
+  .tenant-name {
+    opacity: 0.85;
+  }
+  .display-name {
+    margin-right: 8px;
+    opacity: 0.9;
+  }
+}
+
+.app-content {
+  flex: 1;
+  padding: 24px;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+}

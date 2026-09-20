@@ -1,0 +1,31 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+
+  &.current {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  &.stale {
+    background: #fff3e0;
+    color: #e65100;
+  }
+
+  &.no-data {
+    background: #f5f5f5;
+    color: #757575;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .badge {
+    &.current { background: #1b5e20; color: #a5d6a7; }
+    &.stale { background: #bf360c; color: #ffccbc; }
+    &.no-data { background: #424242; color: #bdbdbd; }
+  }
+}

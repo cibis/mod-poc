@@ -1,0 +1,53 @@
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+$light-theme: mat.define-theme((
+  color: (
+    theme-type: light,
+    primary: mat.$azure-palette,
+  ),
+  typography: (
+    brand-family: 'Roboto',
+    bold-weight: 700,
+  ),
+));
+
+$dark-theme: mat.define-theme((
+  color: (
+    theme-type: dark,
+    primary: mat.$azure-palette,
+  ),
+));
+
+html {
+  color-scheme: light;
+  @include mat.all-component-themes($light-theme);
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+    @include mat.all-component-colors($dark-theme);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Roboto, sans-serif;
+}
+
+.spacer { flex: 1 1 auto; }
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.error-message {
+  padding: 16px;
+  color: var(--mat-sys-error);
+}

@@ -1,0 +1,43 @@
+{
+  "name": "customer-portal",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve --proxy-config proxy.conf.json",
+    "build": "ng build customer-portal --configuration production",
+    "lint": "ng lint",
+    "format": "prettier --write \"src/**/*.{ts,html,scss}\""
+  },
+  "dependencies": {
+    "@angular/animations": "^19.2.25",
+    "@angular/cdk": "^19.2.19",
+    "@angular/common": "^19.2.25",
+    "@angular/compiler": "^19.2.25",
+    "@angular/core": "^19.2.25",
+    "@angular/forms": "^19.2.25",
+    "@angular/material": "^19.2.19",
+    "@angular/platform-browser": "^19.2.25",
+    "@angular/router": "^19.2.25",
+    "@microsoft/signalr": "^10.0.11",
+    "echarts": "^5.5.0",
+    "ngx-echarts": "^19.0.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^19.2.27",
+    "@angular-eslint/builder": "^19.8.1",
+    "@angular-eslint/eslint-plugin": "^19.8.1",
+    "@angular-eslint/eslint-plugin-template": "^19.8.1",
+    "@angular-eslint/schematics": "^19.8.1",
+    "@angular-eslint/template-parser": "^19.8.1",
+    "@angular/cli": "^19.2.27",
+    "@angular/compiler-cli": "^19.2.25",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "~5.7.0"
+  }
+}

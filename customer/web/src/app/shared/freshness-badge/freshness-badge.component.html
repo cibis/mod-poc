@@ -1,0 +1,14 @@
+@switch (freshness().status) {
+  @case ('Current') {
+    <span class="badge current" [matTooltip]="freshness().lastEventTime | relativeTime">Current</span>
+  }
+  @case ('Stale') {
+    <span class="badge stale"
+      [matTooltip]="'Last event: ' + (freshness().lastEventTime | relativeTime)">
+      Stale — data delayed since {{ freshness().lastEventTime | relativeTime }}
+    </span>
+  }
+  @case ('NoData') {
+    <span class="badge no-data">No data</span>
+  }
+}

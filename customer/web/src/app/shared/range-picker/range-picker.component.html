@@ -1,0 +1,5 @@
+<mat-button-toggle-group [value]="value()" (change)="onchange($event.value)">
+  @for (opt of options; track opt.value) {
+    <mat-button-toggle [value]="opt.value">{{ opt.label }}</mat-button-toggle>
+  }
+</mat-button-toggle-group>

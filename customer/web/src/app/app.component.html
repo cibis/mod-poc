@@ -1,0 +1,16 @@
+<div class="app-shell">
+  @if (auth.isAuthenticated()) {
+    <mat-toolbar color="primary" class="app-header">
+      <span class="poc-banner">Customer view (minimal PoC)</span>
+      @if (auth.tenantName()) {
+        <span class="tenant-name">&nbsp;— {{ auth.tenantName() }}</span>
+      }
+      <span class="spacer"></span>
+      <span class="display-name">{{ auth.displayName() }}</span>
+      <button mat-button (click)="auth.logout()">Sign out</button>
+    </mat-toolbar>
+  }
+  <main class="app-content">
+    <router-outlet />
+  </main>
+</div>

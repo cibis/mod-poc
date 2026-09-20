@@ -1,0 +1,81 @@
+@if (loadingHierarchy()) {
+  <div class="loading-container"><mat-spinner /></div>
+} @else {
+  <div class="site-header">
+    <div>
+      <h2>{{ siteInfo()?.name ?? siteId() }}</h2>
+      @if (siteInfo()?.regionLabel) {
+        <span class="region">{{ siteInfo()!.regionLabel }}</span>
+      }
+    </div>
+    @if (freshness()) {
+      <app-freshness-badge [freshness]="freshness()!.freshness" />
+    }
+  </div>
+
+  <div class="controls-row">
+    <app-range-picker [value]="rangeMinutes()" (changed)="rangeMinutes.set($event)" />
+  </div>
+
+  @if (errorSummary()) {
+    <p class="error-message">{{ errorSummary() }}</p>
+  } @else if (loadingSummary()) {
+    <div class="loading-container"><mat-spinner /></div>
+  } @else {
+    <mat-card class="summary-card">
+      <mat-card-header><mat-card-title>Line totals</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <table mat-table [dataSource]="summary()">
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>Line</th>
+            <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+          </ng-container>
+          <ng-container matColumnDef="eventCount">
+            <th mat-header-cell *matHeaderCellDef>Events</th>
+            <td mat-cell *matCellDef="let row">{{ row.eventCount }}</td>
+          </ng-container>
+          <ng-container matColumnDef="counterDelta">
+            <th mat-header-cell *matHeaderCellDef>Counter delta</th>
+            <td mat-cell *matCellDef="let row">{{ row.counterDelta }}</td>
+          </ng-container>
+          <ng-container matColumnDef="faultEventCount">
+            <th mat-header-cell *matHeaderCellDef>Faults</th>
+            <td mat-cell *matCellDef="let row">{{ row.faultEventCount }}</td>
+          </ng-container>
+          <ng-container matColumnDef="restatedMinutes">
+            <th mat-header-cell *matHeaderCellDef>Restated min</th>
+            <td mat-cell *matCellDef="let row">
+              @if (row.restatedMinutes > 0) {
+                <span class="restated-indicator" title="Updated after the period closed (late data)">
+                  {{ row.restatedMinutes }} ↺
+                </span>
+              } @else {
+                {{ row.restatedMinutes }}
+              }
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="summaryColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: summaryColumns;"></tr>
+        </table>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (siteInfo()) {
+    <h3 class="section-title">Assets</h3>
+    @for (line of siteInfo()!.lines; track line.lineId) {
+      <mat-card class="line-card">
+        <mat-card-header><mat-card-title>{{ line.name }}</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="asset-list">
+            @for (asset of line.assets; track asset.assetId) {
+              <a [routerLink]="['/assets', asset.assetId]" class="asset-chip">
+                {{ asset.name }}
+              </a>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+    }
+  }
+}

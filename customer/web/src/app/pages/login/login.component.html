@@ -1,0 +1,35 @@
+<div class="login-container">
+  <mat-card class="login-card">
+    <mat-card-header>
+      <mat-card-title>Customer Portal</mat-card-title>
+      <mat-card-subtitle>Customer view (minimal PoC)</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Username</mat-label>
+          <input matInput formControlName="userName" autocomplete="username" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Password</mat-label>
+          <input matInput type="password" formControlName="password" autocomplete="current-password" />
+        </mat-form-field>
+        @if (error()) {
+          <p class="login-error">{{ error() }}</p>
+        }
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="full-width"
+          [disabled]="form.invalid || loading()">
+          @if (loading()) {
+            <mat-spinner diameter="20" />
+          } @else {
+            Sign in
+          }
+        </button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

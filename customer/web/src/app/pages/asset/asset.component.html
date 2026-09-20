@@ -1,0 +1,37 @@
+<div class="asset-header">
+  <h2>Asset: {{ assetId() }}</h2>
+  <app-range-picker [value]="rangeMinutes()" (changed)="rangeMinutes.set($event)" />
+</div>
+
+@if (loading()) {
+  <div class="loading-container"><mat-spinner /></div>
+} @else if (error()) {
+  <p class="error-message">{{ error() }}</p>
+} @else {
+  <mat-card class="chart-card">
+    <mat-card-header><mat-card-title>Minute chart</mat-card-title></mat-card-header>
+    <mat-card-content>
+      <div echarts [options]="chartOptions()" class="chart"></div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="state-card">
+    <mat-card-header><mat-card-title>State strip</mat-card-title></mat-card-header>
+    <mat-card-content>
+      <div class="state-strip">
+        @for (r of rollups(); track r.minuteStart) {
+          <div
+            class="state-cell"
+            [class]="'state-' + (r.lastState ?? 'unknown').toLowerCase()"
+            [class.restated]="r.isRestated"
+            [matTooltip]="(r.lastState ?? 'Unknown') + ' @ ' + formatUtc(r.minuteStart) + (r.isRestated ? ' — Updated after the period closed (late data)' : '')"
+          ></div>
+        }
+      </div>
+      <div class="restated-legend">
+        <span class="restated-swatch"></span>
+        <span>Restated — Updated after the period closed (late data)</span>
+      </div>
+    </mat-card-content>
+  </mat-card>
+}

@@ -1,0 +1,62 @@
+.asset-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+
+  h2 { margin: 0; }
+}
+
+.chart-card, .state-card {
+  margin-bottom: 16px;
+}
+
+.chart {
+  width: 100%;
+  height: 320px;
+}
+
+.state-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 8px 0;
+}
+
+.state-cell {
+  width: 14px;
+  height: 28px;
+  border-radius: 2px;
+  background: #bdbdbd;
+
+  &.restated {
+    outline: 2px solid #FF9800;
+    outline-offset: -2px;
+  }
+
+  &.state-running { background: #66bb6a; }
+  &.state-idle { background: #90caf9; }
+  &.state-fault { background: #ef5350; }
+  &.state-off { background: #9e9e9e; }
+  &.state-setup { background: #ffca28; }
+}
+
+.restated-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-top: 4px;
+  color: var(--mat-sys-on-surface-variant, #666);
+}
+
+.restated-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: #bdbdbd;
+  outline: 2px solid #FF9800;
+  outline-offset: -2px;
+  display: inline-block;
+}

@@ -1,0 +1,27 @@
+<h2>Sites</h2>
+
+@if (loading()) {
+  <div class="loading-container"><mat-spinner /></div>
+} @else if (error()) {
+  <p class="error-message">{{ error() }}</p>
+} @else {
+  <div class="sites-grid">
+    @for (site of sites(); track site.siteId) {
+      <mat-card [routerLink]="['/sites', site.siteId]" class="site-card">
+        <mat-card-header>
+          <mat-card-title>{{ site.name }}</mat-card-title>
+          <mat-card-subtitle>{{ site.freshness.status }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <app-freshness-badge [freshness]="site.freshness" />
+          <div class="site-stats">
+            <span>Completeness (last hour): {{ (site.completenessLastHour.ratio * 100).toFixed(1) }}%</span>
+            <span>Open gaps: {{ site.openGapCount }}</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    } @empty {
+      <p>No sites found.</p>
+    }
+  </div>
+}

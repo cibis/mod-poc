@@ -1,0 +1,46 @@
+.site-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  h2 { margin: 0; }
+  .region { font-size: 13px; color: var(--mat-sys-on-surface-variant, #666); }
+}
+
+.controls-row {
+  margin-bottom: 16px;
+}
+
+.summary-card, .line-card {
+  margin-bottom: 16px;
+}
+
+.restated-indicator {
+  color: #e65100;
+  font-weight: 500;
+}
+
+.section-title {
+  margin: 24px 0 8px;
+}
+
+.asset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.asset-chip {
+  padding: 4px 12px;
+  border-radius: 16px;
+  background: var(--mat-sys-surface-variant, #e7e0ec);
+  color: var(--mat-sys-on-surface-variant, #49454f);
+  text-decoration: none;
+  font-size: 13px;
+
+  &:hover {
+    filter: brightness(0.95);
+  }
+}
