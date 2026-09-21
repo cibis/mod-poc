@@ -1,6 +1,4 @@
 // DEMO SCAFFOLDING
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Azure.Messaging.ServiceBus;
 using Azure.Messaging.ServiceBus.Administration;
@@ -9,10 +7,9 @@ using Mod.PortalApi.Features.Simulation.Models;
 namespace Mod.PortalApi.Features.Simulation.Channel;
 
 // Wraps the simulator Service Bus namespace (separate from the product command namespace).
-// Manages sim/{collectorId} queues, mints SAS tokens for collectors, sends commands.
+// Manages sim/{collectorId} queues, exposes key credentials for collectors, sends commands.
 internal sealed class SimServiceBusClient : IAsyncDisposable
 {
-    private readonly string _fqdn;
     private readonly string _sasKeyName;
     private readonly string _sasKey;
     private readonly ServiceBusAdministrationClient _adminClient;
@@ -22,7 +19,6 @@ internal sealed class SimServiceBusClient : IAsyncDisposable
         string fqdn, string sasKeyName, string sasKey,
         Azure.Core.TokenCredential credential)
     {
-        _fqdn = fqdn;
         _sasKeyName = sasKeyName;
         _sasKey = sasKey;
         _adminClient = new ServiceBusAdministrationClient(fqdn, credential);
@@ -54,13 +50,8 @@ internal sealed class SimServiceBusClient : IAsyncDisposable
             await _adminClient.DeleteQueueAsync(name, ct);
     }
 
-    // PoC: namespace-scoped SAS so ServiceBusClient(fqdn, AzureSasCredential) works for any queue.
-    // Production: issue per-entity tokens scoped to the individual queue resource URI.
-    internal string MintListenToken(string queueName, TimeSpan duration)
-        => GenerateSasToken(NamespaceResourceUri(), _sasKeyName, _sasKey, duration);
-
-    internal string MintSendToken(string queueName, TimeSpan duration)
-        => GenerateSasToken(NamespaceResourceUri(), _sasKeyName, _sasKey, duration);
+    internal string GetKeyName() => _sasKeyName;
+    internal string GetKey() => _sasKey;
 
     internal async Task SendCommandAsync(Guid collectorId, SimCommandBody command, CancellationToken ct = default)
     {
@@ -86,28 +77,6 @@ internal sealed class SimServiceBusClient : IAsyncDisposable
 
     // Creation path submitted to the SB management API; Azure normalises '/' to '~' on write.
     private static string CollectorQueueCreationPath(Guid collectorId) => $"sim/{collectorId:D}";
-
-    private string NamespaceResourceUri() => $"https://{_fqdn}/";
-
-    private string ResourceUri(string queueName)
-        => $"https://{_fqdn}/{queueName}";
-
-    private static string GenerateSasToken(
-        string resourceUri, string keyName, string key, TimeSpan duration)
-    {
-        var expiry = DateTimeOffset.UtcNow.Add(duration);
-        var expirySeconds = expiry.ToUnixTimeSeconds().ToString();
-        var encodedUri = Uri.EscapeDataString(resourceUri);
-        var stringToSign = $"{encodedUri}\n{expirySeconds}";
-        var keyBytes = Convert.FromBase64String(key);
-        using var hmac = new HMACSHA256(keyBytes);
-        var signature = Convert.ToBase64String(
-            hmac.ComputeHash(Encoding.UTF8.GetBytes(stringToSign)));
-        return $"SharedAccessSignature sr={encodedUri}" +
-               $"&sig={Uri.EscapeDataString(signature)}" +
-               $"&se={expirySeconds}" +
-               $"&skn={keyName}";
-    }
 
     public async ValueTask DisposeAsync()
     {

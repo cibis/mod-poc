@@ -82,8 +82,9 @@ internal sealed class ProductCommandListener : BackgroundService
         var tokens = await FetchTokensAsync(managementUrl, ct);
         if (tokens is null) return;
 
-        await using var recvClient = new ServiceBusClient(tokens.NamespaceFqdn, new AzureSasCredential(tokens.RequestSasToken));
-        await using var sendClient = new ServiceBusClient(tokens.NamespaceFqdn, new AzureSasCredential(tokens.ReplySasToken));
+        var credential = new AzureNamedKeyCredential(tokens.KeyName, tokens.Key);
+        await using var recvClient = new ServiceBusClient(tokens.NamespaceFqdn, credential);
+        await using var sendClient = new ServiceBusClient(tokens.NamespaceFqdn, credential);
         await using var receiver = recvClient.CreateReceiver(tokens.RequestQueue,
             new ServiceBusReceiverOptions { ReceiveMode = ServiceBusReceiveMode.PeekLock });
         await using var sender = sendClient.CreateSender(tokens.ReplyQueue);
@@ -307,8 +308,8 @@ internal sealed class ProductCommandListener : BackgroundService
                 root.GetProperty("namespaceFqdn").GetString()!,
                 root.GetProperty("requestQueue").GetString()!,
                 root.GetProperty("replyQueue").GetString()!,
-                root.GetProperty("requestSasToken").GetString()!,
-                root.GetProperty("replySasToken").GetString()!,
+                root.GetProperty("keyName").GetString()!,
+                root.GetProperty("key").GetString()!,
                 root.GetProperty("expiresAt").GetDateTimeOffset());
         }
         catch (Exception ex)
@@ -332,6 +333,6 @@ internal sealed record CommandChannelTokens(
     string NamespaceFqdn,
     string RequestQueue,
     string ReplyQueue,
-    string RequestSasToken,
-    string ReplySasToken,
+    string KeyName,
+    string Key,
     DateTimeOffset ExpiresAt);

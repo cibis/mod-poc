@@ -47,16 +47,15 @@ internal sealed class PowerOperations(
             // 2. Issue enrolment token.
             var tokenResult = await tokenService.IssueTokenAsync(collectorId, actor);
 
-            string commandSas = string.Empty;
-            string statusSas = string.Empty;
+            string simKeyName = string.Empty;
+            string simKey = string.Empty;
 
             if (sbClient is not null)
             {
-                // 3. Ensure sim/{collectorId} queue exists; mint SAS tokens (30 days).
+                // 3. Ensure sim/{collectorId} queue exists; pass the raw SAS key to provisioner.
                 await sbClient.EnsureCollectorQueueAsync(collectorId, ct);
-                var queueName = SimServiceBusClient.CollectorQueueName(collectorId);
-                commandSas = sbClient.MintListenToken(queueName, TimeSpan.FromDays(30));
-                statusSas = sbClient.MintSendToken("sim-status", TimeSpan.FromDays(30));
+                simKeyName = sbClient.GetKeyName();
+                simKey = sbClient.GetKey();
             }
 
             // 4. Determine container app name and update SQL state to Provisioning.
@@ -83,7 +82,7 @@ internal sealed class PowerOperations(
                     {
                         var operation = await provisioner.StartCreateAsync(
                             collectorId, detail.Collector.TenantId, detail.Collector.SiteId,
-                            commandSas, statusSas);
+                            simKeyName, simKey);
 
                         while (!operation.HasCompleted)
                         {

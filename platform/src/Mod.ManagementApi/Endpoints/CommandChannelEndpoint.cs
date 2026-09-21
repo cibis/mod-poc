@@ -38,8 +38,8 @@ public static class CommandChannelEndpoint
             namespaceFqdn = tokens.NamespaceFqdn,
             requestQueue = tokens.RequestQueue,
             replyQueue = tokens.ReplyQueue,
-            requestSasToken = tokens.RequestSasToken,
-            replySasToken = tokens.ReplySasToken,
+            keyName = tokens.KeyName,
+            key = tokens.Key,
             expiresAt = tokens.ExpiresAt.ToString("O")
         });
     }

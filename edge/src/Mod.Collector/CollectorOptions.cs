@@ -12,9 +12,9 @@ internal sealed class CollectorOptions
     public required string DataDir { get; init; }
     public required string SimSbFqdn { get; init; }
     public required string SimCommandQueue { get; init; }
-    public required string SimCommandSas { get; init; }
+    public required string SimSbKeyName { get; init; }
+    public required string SimSbKey { get; init; }
     public required string SimStatusQueue { get; init; }
-    public required string SimStatusSas { get; init; }
     public int SimInitialRate { get; init; }
     public required string CollectorSoftwareVersion { get; init; }
     public LogLevel ParsedLogLevel { get; init; }
@@ -39,9 +39,9 @@ internal sealed class CollectorOptions
         var dataDir = Environment.GetEnvironmentVariable("DATA_DIR") is { Length: > 0 } d ? d : "/data";
         var simSbFqdn = Require("SIM_SB_FQDN");
         var simCommandQueue = Require("SIM_COMMAND_QUEUE");
-        var simCommandSas = Require("SIM_COMMAND_SAS");
+        var simSbKeyName = Require("SIM_SB_KEY_NAME");
+        var simSbKey = Require("SIM_SB_KEY");
         var simStatusQueue = Require("SIM_STATUS_QUEUE");
-        var simStatusSas = Require("SIM_STATUS_SAS");
         var simInitialRate = int.TryParse(Environment.GetEnvironmentVariable("SIM_INITIAL_RATE"), out var r) ? r : 1;
         var collectorSoftwareVersion = Require("COLLECTOR_SOFTWARE_VERSION");
         var logLevelStr = Environment.GetEnvironmentVariable("LOG_LEVEL") is { Length: > 0 } ll ? ll : "Information";
@@ -65,9 +65,9 @@ internal sealed class CollectorOptions
             DataDir = dataDir,
             SimSbFqdn = simSbFqdn,
             SimCommandQueue = simCommandQueue,
-            SimCommandSas = simCommandSas,
+            SimSbKeyName = simSbKeyName,
+            SimSbKey = simSbKey,
             SimStatusQueue = simStatusQueue,
-            SimStatusSas = simStatusSas,
             SimInitialRate = simInitialRate,
             CollectorSoftwareVersion = collectorSoftwareVersion,
             ParsedLogLevel = logLevel,

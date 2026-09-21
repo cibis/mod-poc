@@ -60,7 +60,7 @@ internal sealed class ContainerAppProvisioner
     // Starts the container app creation. Returns an ARM long-running operation that the caller
     // polls. State transitions (Provisioning → Running / Failed) are handled by the caller.
     internal async Task<ArmOperation<ContainerAppResource>> StartCreateAsync(
-        Guid collectorId, Guid tenantId, Guid siteId, string commandSas, string statusSas,
+        Guid collectorId, Guid tenantId, Guid siteId, string simKeyName, string simKey,
         CancellationToken ct = default)
     {
         var rgId = ResourceGroupResource.CreateResourceIdentifier(
@@ -69,7 +69,7 @@ internal sealed class ContainerAppProvisioner
         var apps = rg.GetContainerApps();
 
         var appName = AppName(collectorId);
-        var appData = BuildAppData(collectorId, tenantId, siteId, commandSas, statusSas);
+        var appData = BuildAppData(collectorId, tenantId, siteId, simKeyName, simKey);
 
         return await apps.CreateOrUpdateAsync(WaitUntil.Started, appName, appData, ct);
     }
@@ -127,7 +127,7 @@ internal sealed class ContainerAppProvisioner
     }
 
     private ContainerAppData BuildAppData(
-        Guid collectorId, Guid tenantId, Guid siteId, string commandSas, string statusSas)
+        Guid collectorId, Guid tenantId, Guid siteId, string simKeyName, string simKey)
     {
         var config = new ContainerAppConfiguration
         {
@@ -141,8 +141,7 @@ internal sealed class ContainerAppProvisioner
         // PoC: shared client cert passed as a secret; one cert for all collectors.
         // Production: cert is issued per-collector via /v1/enrol; no cert secret needed here.
         config.Secrets.Add(new ContainerAppWritableSecret { Name = "collector-client-cert", Value = _collectorClientCertB64 });
-        config.Secrets.Add(new ContainerAppWritableSecret { Name = "sim-command-sas", Value = commandSas });
-        config.Secrets.Add(new ContainerAppWritableSecret { Name = "sim-status-sas", Value = statusSas });
+        config.Secrets.Add(new ContainerAppWritableSecret { Name = "sim-sb-key", Value = simKey });
 
         var container = new ContainerAppContainer
         {
@@ -164,9 +163,9 @@ internal sealed class ContainerAppProvisioner
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "DATA_DIR", Value = "/data" });
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "SIM_SB_FQDN", Value = _simSbFqdn });
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "SIM_COMMAND_QUEUE", Value = SimChannel.CollectorQueueName(collectorId) });
-        container.Env.Add(new ContainerAppEnvironmentVariable { Name = "SIM_COMMAND_SAS", SecretRef = "sim-command-sas" });
+        container.Env.Add(new ContainerAppEnvironmentVariable { Name = "SIM_SB_KEY_NAME", Value = simKeyName });
+        container.Env.Add(new ContainerAppEnvironmentVariable { Name = "SIM_SB_KEY", SecretRef = "sim-sb-key" });
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "SIM_STATUS_QUEUE", Value = "sim-status" });
-        container.Env.Add(new ContainerAppEnvironmentVariable { Name = "SIM_STATUS_SAS", SecretRef = "sim-status-sas" });
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "SIM_INITIAL_RATE", Value = "1" });
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "COLLECTOR_SOFTWARE_VERSION", Value = _collectorSoftwareVersion });
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "LOG_LEVEL", Value = "Information" });

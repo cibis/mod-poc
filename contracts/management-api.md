@@ -23,8 +23,8 @@ Base URL: collector env `MANAGEMENT_URL`, also `managementUrl` in the config doc
 - Effects: new certificate row; previous certificate gets `SupersededAt` = now but stays valid until expiry so in-flight requests succeed.
 
 **GET /v1/command-channel**
-- 200 `{enabled: false}` or `{enabled: true, namespaceFqdn, requestQueue, replyQueue, requestSasToken, replySasToken, expiresAt}`.
-- Tokens are Service Bus SAS tokens signed with namespace rule `collector-issuer`; request token resource URI `https://{namespaceFqdn}/{requestQueue}`, reply token resource URI `https://{namespaceFqdn}/{replyQueue}`; lifetime 1 h. The collector refetches when less than 10 min remain.
+- 200 `{enabled: false}` or `{enabled: true, namespaceFqdn, requestQueue, replyQueue, keyName, key, expiresAt}`.
+- `keyName` is the SAS rule name (`collector-issuer`); `key` is its base64-encoded primary key. The collector constructs an `AzureNamedKeyCredential(keyName, key)` and opens a `ServiceBusClient(namespaceFqdn, credential)`. `expiresAt` is 1 h from now; the collector refetches when less than 10 min remain (to handle key rotation).
 
 **ConfigDocument**
 

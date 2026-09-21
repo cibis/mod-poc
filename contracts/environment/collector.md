@@ -14,9 +14,9 @@ Set by `infra` (Bicep) for production apps; set by the portal simulator for coll
 | DATA_DIR | `/data` | EmptyDir volume: buffer, request log |
 | SIM_SB_FQDN | | Simulator namespace |
 | SIM_COMMAND_QUEUE | `sim/{collectorId}` | |
-| SIM_COMMAND_SAS | secret | SAS token (Listen) |
+| SIM_SB_KEY_NAME | `sim-issuer` | SAS rule name for simulator namespace |
+| SIM_SB_KEY | secret | Base64-encoded SAS key for `SIM_SB_KEY_NAME` |
 | SIM_STATUS_QUEUE | `sim-status` | |
-| SIM_STATUS_SAS | secret | SAS token (Send) |
 | SIM_INITIAL_RATE | 1 | Events per second per source until a SetRate arrives |
 | COLLECTOR_SOFTWARE_VERSION | image tag | |
 | LOG_LEVEL | `Information` | Logs go to stdout only (controller Log Analytics) |

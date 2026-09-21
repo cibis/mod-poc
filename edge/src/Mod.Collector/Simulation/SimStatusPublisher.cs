@@ -65,7 +65,7 @@ internal sealed class SimStatusPublisher : BackgroundService
         {
             client = new ServiceBusClient(
                 _options.SimSbFqdn,
-                new AzureSasCredential(_options.SimStatusSas));
+                new AzureNamedKeyCredential(_options.SimSbKeyName, _options.SimSbKey));
             sender = client.CreateSender(_options.SimStatusQueue);
 
             while (!stoppingToken.IsCancellationRequested)

@@ -44,7 +44,7 @@ internal sealed class SimChannelListener : BackgroundService
     {
         await using var client = new ServiceBusClient(
             _options.SimSbFqdn,
-            new AzureSasCredential(_options.SimCommandSas));
+            new AzureNamedKeyCredential(_options.SimSbKeyName, _options.SimSbKey));
         await using var receiver = client.CreateReceiver(_options.SimCommandQueue,
             new ServiceBusReceiverOptions { ReceiveMode = ServiceBusReceiveMode.ReceiveAndDelete });
 
