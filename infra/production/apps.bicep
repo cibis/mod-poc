@@ -48,6 +48,9 @@ param collectorPullIdentityId string
 // ── optional developer principals for migrator ────────────────────────────────
 param developerPrincipals string = ''
 
+// ── collector CA public cert (base64 PEM) for ingest-api TLS validation ───────
+param collectorCaPemB64 string = ''
+
 // ── derived values ────────────────────────────────────────────────────────────
 var modEnv = 'production'
 var ingestUrl = 'https://ca-ingest.${caeDefaultDomain}'
@@ -98,7 +101,7 @@ resource caIngest 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'SQL_CONNECTION', value: '${sqlConnectionString}User ID=${ingestClientId};' }
             { name: 'EVENTHUB_FQDN', value: ehFqdn }
             { name: 'EVENTHUB_NAME', value: 'telemetry' }
-            { name: 'COLLECTOR_CA_CERT_PEM_BASE64', value: '' }
+            { name: 'COLLECTOR_CA_CERT_PEM_BASE64', value: collectorCaPemB64 }
             { name: 'INGEST_MAX_EVENTS', value: '500' }
             { name: 'INGEST_MAX_BYTES', value: '262144' }
             { name: 'INGEST_RATE_LIMIT_PER_COLLECTOR', value: '20' }

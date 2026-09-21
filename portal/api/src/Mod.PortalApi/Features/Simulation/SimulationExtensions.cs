@@ -45,7 +45,7 @@ internal static class SimulationExtensions
         var controllerSub = Environment.GetEnvironmentVariable("CONTROLLER_SUBSCRIPTION_ID");
         if (!string.IsNullOrWhiteSpace(controllerSub))
         {
-            services.AddSingleton<ContainerAppProvisioner>();
+            services.AddSingleton(new ContainerAppProvisioner());
 
             services.AddHostedService<ProvisioningReconciler>(sp =>
                 new ProvisioningReconciler(

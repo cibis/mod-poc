@@ -23,8 +23,10 @@ internal static class LoginEndpoint
         await using (var conn = new SqlConnection(sqlConfig.ConnectionString))
         {
             row = await conn.QuerySingleOrDefaultAsync<AppUserRow>(
-                "SELECT UserId, DisplayName, PasswordHash, Kind, TenantId, TenantName " +
-                "FROM registry.AppUser WHERE UserName = @UserName",
+                "SELECT u.UserId, u.DisplayName, u.PasswordHash, u.Kind, u.TenantId, t.Name AS TenantName " +
+                "FROM registry.AppUser u " +
+                "LEFT JOIN registry.Tenant t ON t.TenantId = u.TenantId " +
+                "WHERE u.UserName = @UserName",
                 new { req.UserName });
         }
 

@@ -84,20 +84,24 @@ public sealed class CertificateAuthority : BackgroundService
 
     private async Task LoadAsync(CancellationToken ct)
     {
-        byte[] pkcs12;
         if (_options.PfxPath is not null)
         {
-            pkcs12 = await File.ReadAllBytesAsync(_options.PfxPath, ct);
+            var pkcs12 = await File.ReadAllBytesAsync(_options.PfxPath, ct);
+            _caCert = X509CertificateLoader.LoadPkcs12(
+                pkcs12, string.Empty,
+                X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
         }
         else
         {
             var secret = await _secretClient!.GetSecretAsync(_options.CertName, cancellationToken: ct);
-            pkcs12 = Convert.FromBase64String(secret.Value.Value);
+            var value = secret.Value.Value;
+            // Key Vault returns raw PEM for application/x-pem-file certificates;
+            // base64-encoded PKCS12 for application/x-pkcs12. Handle both.
+            _caCert = value.TrimStart().StartsWith("-----", StringComparison.Ordinal)
+                ? X509Certificate2.CreateFromPem(value, value)
+                : X509CertificateLoader.LoadPkcs12(
+                    Convert.FromBase64String(value), string.Empty,
+                    X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
         }
-
-        _caCert = X509CertificateLoader.LoadPkcs12(
-            pkcs12,
-            string.Empty,
-            X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
     }
 }

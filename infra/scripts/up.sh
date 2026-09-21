@@ -416,6 +416,7 @@ MSYS_NO_PATHCONV=1 az deployment group create \
     controllerLocation="$CONTROLLER_LOCATION" \
     collectorPullIdentityId="$COLLECTOR_PULL_IDENTITY_ID" \
     developerPrincipals="$DEVELOPER_PRINCIPALS" \
+    collectorCaPemB64="$COLLECTOR_CA_PEM_B64" \
   --output none
 
 # ── Step 11: Run database migrator job ───────────────────────────────────────
