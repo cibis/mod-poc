@@ -156,15 +156,18 @@ internal sealed class DeadLetterReplayService(
             cancellationToken: ct));
     }
 
-    private record DeadLetterRow(
-        long DeadLetterId,
-        Guid? TenantId,
-        Guid? SiteId,
-        Guid CollectorId,
-        Guid BatchId,
-        Guid? EventId,
-        string ReasonCode,
-        string EventJson,
-        DateTime ReceivedAt,
-        int ReplayAttempts);
+    // Class (not record) so Dapper uses property mapping — nullable Guid? columns work correctly.
+    private sealed class DeadLetterRow
+    {
+        public long DeadLetterId { get; set; }
+        public Guid? TenantId { get; set; }
+        public Guid? SiteId { get; set; }
+        public Guid CollectorId { get; set; }
+        public Guid BatchId { get; set; }
+        public Guid? EventId { get; set; }
+        public string ReasonCode { get; set; } = "";
+        public string EventJson { get; set; } = "";
+        public DateTime ReceivedAt { get; set; }
+        public int ReplayAttempts { get; set; }
+    }
 }
