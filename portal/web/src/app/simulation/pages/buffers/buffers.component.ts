@@ -28,11 +28,15 @@ export class BuffersComponent {
       series: [{
         type: 'gauge',
         min: 0, max: 100,
-        detail: { formatter: '{value}%', fontSize: 16 },
-        data: [{ value: pct, name: `${depth}/${cap}` }],
-        axisLine: { lineStyle: { color: [[pct / 100, color], [1, '#e0e0e0']], width: 16 } },
-        pointer: { length: '70%' },
-        title: { fontSize: 11 },
+        radius: '85%',
+        axisLine: { lineStyle: { color: [[pct / 100, color], [1, '#e0e0e0']], width: 18 } },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { show: false },
+        pointer: { length: '60%', width: 6 },
+        detail: { formatter: '{value}%', fontSize: 22, fontWeight: 'bold', offsetCenter: [0, '55%'] },
+        title: { fontSize: 13, offsetCenter: [0, '80%'] },
+        data: [{ value: pct, name: `${depth} / ${cap}` }],
       }],
     } as EChartsOption;
   }

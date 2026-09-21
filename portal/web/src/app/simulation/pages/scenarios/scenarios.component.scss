@@ -6,7 +6,7 @@
 
 .active-run-card {
   margin-bottom: 16px;
-  border-left: 4px solid #ff8f00;
+  border-left: 4px solid #1976d2;
 }
 
 .current-step {
@@ -58,6 +58,6 @@
   background: #e0e0e0;
 
   &.run-completed { background: #c8e6c9; color: #1b5e20; }
-  &.run-stopped   { background: #fff3e0; color: #bf360c; }
+  &.run-stopped   { background: #e3f2fd; color: #1565c0; }
   &.run-failed    { background: #ffcdd2; color: #b71c1c; }
 }

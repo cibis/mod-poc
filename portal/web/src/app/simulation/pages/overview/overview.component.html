@@ -56,27 +56,9 @@
         </mat-card-content>
       </mat-card>
 
-      <mat-card class="chart-card chart-card--wide">
-        <mat-card-content>
-          <div echarts [options]="replicasChartOptions()" class="line-chart"></div>
-        </mat-card-content>
-      </mat-card>
-
       <mat-card class="chart-card">
         <mat-card-content>
           <div echarts [options]="processingChartOptions()" class="line-chart"></div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="chart-card">
-        <mat-card-content>
-          <div echarts [options]="deadLettersChartOptions()" class="line-chart"></div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="chart-card">
-        <mat-card-content>
-          <div echarts [options]="restatedChartOptions()" class="line-chart"></div>
         </mat-card-content>
       </mat-card>
     </div>

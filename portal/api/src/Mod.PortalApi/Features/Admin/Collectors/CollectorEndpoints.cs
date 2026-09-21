@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Mod.PortalApi.Features.Admin.Models;
 using Mod.PortalApi.Features.Admin.Services;
 
@@ -41,10 +42,56 @@ internal static class CollectorEndpoints
         return Results.Created($"/api/admin/collectors/{collector.CollectorId}", collector);
     }
 
+    private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
     private static async Task<IResult> GetCollector(Guid id, ICollectorService svc)
     {
-        var detail = await svc.GetCollectorDetailAsync(id);
-        return detail is null ? Results.NotFound() : Results.Ok(detail);
+        var d = await svc.GetCollectorDetailAsync(id);
+        if (d is null) return Results.NotFound();
+
+        var settings = JsonSerializer.Deserialize<JsonElement>(d.Config.SettingsJson);
+
+        static string CertStatus(CertificateRow c) =>
+            c.RevokedAt.HasValue ? "Revoked" : c.SupersededAt.HasValue ? "Superseded" : "Active";
+
+        return Results.Ok(new
+        {
+            collectorId = d.Collector.CollectorId,
+            name = d.Collector.Name,
+            tenantId = d.Collector.TenantId,
+            tenantName = d.TenantName,
+            siteId = d.Collector.SiteId,
+            siteName = d.SiteName,
+            regionLabel = d.RegionLabel,
+            status = d.Collector.Status,
+            lastSeenAt = d.LastSeenAt,
+            softwareVersion = d.SoftwareVersion,
+            config = new
+            {
+                version = d.Config.Version,
+                commandChannelEnabled = d.Config.CommandChannelEnabled,
+                batching = settings.TryGetProperty("batching", out var b) ? (object)b : new { },
+                forwarder = settings.TryGetProperty("forwarder", out var f) ? (object)f : new { },
+                buffer = settings.TryGetProperty("buffer", out var bu) ? (object)bu : new { },
+                intervals = settings.TryGetProperty("intervals", out var iv) ? (object)iv : new { },
+            },
+            mappings = d.Mappings.Select(m => new { m.SourceId, m.AssetId, m.AssetName }),
+            certificates = d.Certificates.Select(c => new { c.IssuedAt, c.ExpiresAt, status = CertStatus(c) }),
+            latestHealth = d.Health is null ? null : (object)new
+            {
+                receivedAt = d.Health.ReceivedAt,
+                bufferDepthEvents = d.Health.BufferDepthEvents,
+                bufferCapacityEvents = d.Health.BufferCapacityEvents,
+                overflowDroppedTotal = d.Health.OverflowDroppedTotal,
+            },
+            reconciliation = d.Reconciliation.Select(r => new
+            {
+                minuteAt = r.MinuteStart,
+                produced = r.ProducedCount ?? 0,
+                accepted = r.AcceptedCount,
+                deadLettered = r.DeadLetteredCount,
+            }),
+        });
     }
 
     private static async Task<IResult> UpdateConfig(

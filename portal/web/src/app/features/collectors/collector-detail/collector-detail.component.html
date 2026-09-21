@@ -7,8 +7,8 @@
   <div class="page-header">
     <h1>{{ d.name }}</h1>
     <span class="spacer"></span>
-    <button mat-stroked-button (click)="openToken()"><mat-icon>vpn_key</mat-icon> Enrolment Token</button>
-    <button mat-stroked-button color="warn" (click)="openRevoke()"><mat-icon>block</mat-icon> Revoke</button>
+    <button mat-stroked-button disabled><mat-icon>vpn_key</mat-icon> Enrolment Token</button>
+    <button mat-stroked-button color="warn" disabled><mat-icon>block</mat-icon> Revoke</button>
   </div>
 
   <mat-tab-group>
@@ -53,15 +53,15 @@
       </div>
     </mat-tab>
 
-    <!-- Buffer History -->
-    <mat-tab label="Buffer History">
+    <!-- Buffer History: hidden in PoC (chart rarely populated during demo) -->
+    <!-- <mat-tab label="Buffer History">
       <div class="tab-content chart-wrap">
         <div echarts [options]="healthChartOption()" style="height:300px"></div>
       </div>
-    </mat-tab>
+    </mat-tab> -->
 
-    <!-- Reconciliation -->
-    <mat-tab label="Reconciliation">
+    <!-- Reconciliation: hidden in PoC -->
+    <!-- <mat-tab label="Reconciliation">
       <div class="tab-content">
         <table mat-table [dataSource]="d.reconciliation" class="full-width">
           <ng-container matColumnDef="minuteAt">
@@ -84,7 +84,7 @@
           <tr mat-row *matRowDef="let row; columns: reconcColumns;"></tr>
         </table>
       </div>
-    </mat-tab>
+    </mat-tab> -->
 
     <!-- Config -->
     <mat-tab label="Config">

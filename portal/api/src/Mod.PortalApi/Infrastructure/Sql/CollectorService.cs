@@ -142,11 +142,16 @@ internal sealed class CollectorService(
         await using var conn = new SqlConnection(sqlConfig.ConnectionString);
 
         var collector = await conn.QuerySingleOrDefaultAsync<(
-            Guid CollectorId, Guid TenantId, Guid SiteId, string Name,
-            string Status, bool CommandChannelEnabled, DateTime CreatedAt)>(
+            Guid CollectorId, Guid TenantId, string TenantName, Guid SiteId, string SiteName, string RegionLabel,
+            string Name, string Status, bool CommandChannelEnabled, DateTime CreatedAt,
+            DateTime? LastSeenAt, string? SoftwareVersion)>(
             """
-            SELECT CollectorId, TenantId, SiteId, Name, Status, CommandChannelEnabled, CreatedAt
-            FROM registry.Collector WHERE CollectorId = @CollectorId
+            SELECT c.CollectorId, c.TenantId, t.Name AS TenantName, c.SiteId, s.Name AS SiteName, s.RegionLabel,
+                   c.Name, c.Status, c.CommandChannelEnabled, c.CreatedAt, c.LastSeenAt, c.SoftwareVersion
+            FROM registry.Collector c
+            JOIN registry.Tenant t ON t.TenantId = c.TenantId
+            JOIN registry.Site s ON s.SiteId = c.SiteId
+            WHERE c.CollectorId = @CollectorId
             """,
             new { CollectorId = collectorId });
 
@@ -205,6 +210,11 @@ internal sealed class CollectorService(
 
         return new CollectorDetail(
             collectorRow,
+            collector.TenantName,
+            collector.SiteName,
+            collector.RegionLabel,
+            collector.LastSeenAt,
+            collector.SoftwareVersion,
             configRow ?? new CollectorConfigRow(collectorId, 0, "{}", collector.CommandChannelEnabled, DateTime.UtcNow, ""),
             mappings,
             certificates,

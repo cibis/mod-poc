@@ -21,23 +21,30 @@ internal static class AuditEndpoints
 
         const string where = """
             WHERE (@TenantId IS NULL OR TenantId = @TenantId)
-              AND (@From IS NULL OR At >= @From)
-              AND (@To IS NULL OR At <= @To)
-              AND (@Action IS NULL OR Action = @Action)
+              AND (@From IS NULL OR [At] >= @From)
+              AND (@To IS NULL OR [At] <= @To)
+              AND (@Action IS NULL OR [Action] = @Action)
             """;
         var p = new { TenantId = tenantId, From = from, To = to, Action = action };
 
-        var total = await conn.QuerySingleAsync<int>($"SELECT COUNT(*) FROM registry.AuditLog {where}", p);
-        var offset = (page - 1) * pageSize;
-        var items = (await conn.QueryAsync(
-            $"""
-            SELECT AuditId, At, ActorName, ActorKind, Action, TargetType, TargetId, TenantId, DetailsJson
-            FROM registry.AuditLog
-            {where}
-            ORDER BY At DESC
-            OFFSET {offset} ROWS FETCH NEXT {pageSize} ROWS ONLY
-            """, p)).AsList();
+        try
+        {
+            var total = await conn.QuerySingleAsync<int>($"SELECT COUNT(*) FROM registry.AuditLog {where}", p);
+            var offset = (page - 1) * pageSize;
+            var items = (await conn.QueryAsync<AuditEntry>(
+                $"""
+                SELECT AuditId, [At], ActorName, ActorKind, [Action], TargetType, TargetId, TenantId, DetailsJson
+                FROM registry.AuditLog
+                {where}
+                ORDER BY [At] DESC
+                OFFSET {offset} ROWS FETCH NEXT {pageSize} ROWS ONLY
+                """, p)).AsList();
 
-        return Results.Ok(new PagedResult<dynamic>(items, total));
+            return Results.Ok(new PagedResult<AuditEntry>(items, total));
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(type: "AuditQueryFailed", title: ex.Message, statusCode: 500);
+        }
     }
 }

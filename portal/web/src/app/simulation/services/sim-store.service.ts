@@ -41,7 +41,7 @@ export class SimStoreService {
   readonly showReconnected = signal(false);
 
   readonly productionNodes = computed(() =>
-    this.topology().nodes.filter((n) => n.space === 'production' && n.replicas !== undefined),
+    this.topology().nodes.filter((n) => n.space === 'production' && n.replicas != null),
   );
 
   readonly poweredCollectors = computed(() =>

@@ -41,21 +41,20 @@
 }
 
 .simulator-link {
-  background-color: #fff8e1;
-  color: #e65100;
+  color: #1565c0;
 
   mat-icon {
-    color: #e65100;
+    color: #1565c0;
   }
 
   &.active-link {
-    background-color: #ffe082;
+    background-color: rgba(25, 118, 210, 0.08);
   }
 }
 
 .demo-badge {
   font-size: 0.65rem;
-  background: #ff6f00;
+  background: #1976d2;
   color: white;
   padding: 2px 5px;
   border-radius: 3px;

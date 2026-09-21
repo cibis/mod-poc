@@ -42,6 +42,11 @@ internal sealed record CollectorRow(
 
 internal sealed record CollectorDetail(
     CollectorRow Collector,
+    string TenantName,
+    string SiteName,
+    string RegionLabel,
+    DateTime? LastSeenAt,
+    string? SoftwareVersion,
     CollectorConfigRow Config,
     IReadOnlyList<MappingDetail> Mappings,
     IReadOnlyList<CertificateRow> Certificates,

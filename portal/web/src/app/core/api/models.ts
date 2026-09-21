@@ -167,11 +167,12 @@ export interface Restatement {
 
 export interface AuditEntry {
   auditId: string;
-  performedAt: string;
+  at: string;
   action: string;
-  actor: string;
+  actorName: string;
+  actorKind: string;
   tenantId: string | null;
-  details: string | null;
+  detailsJson: string | null;
 }
 
 export interface BulkReplayResult {

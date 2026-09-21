@@ -16,7 +16,7 @@
   <table mat-table [dataSource]="items()" class="full-width mat-elevation-z2">
     <ng-container matColumnDef="performedAt">
       <th mat-header-cell *matHeaderCellDef>When</th>
-      <td mat-cell *matCellDef="let e">{{ e.performedAt | slice:0:19 }}</td>
+      <td mat-cell *matCellDef="let e">{{ e.at | slice:0:19 }}</td>
     </ng-container>
     <ng-container matColumnDef="action">
       <th mat-header-cell *matHeaderCellDef>Action</th>
@@ -24,7 +24,7 @@
     </ng-container>
     <ng-container matColumnDef="actor">
       <th mat-header-cell *matHeaderCellDef>Actor</th>
-      <td mat-cell *matCellDef="let e">{{ e.actor }}</td>
+      <td mat-cell *matCellDef="let e">{{ e.actorName }}</td>
     </ng-container>
     <ng-container matColumnDef="tenantId">
       <th mat-header-cell *matHeaderCellDef>Tenant</th>
@@ -32,7 +32,7 @@
     </ng-container>
     <ng-container matColumnDef="details">
       <th mat-header-cell *matHeaderCellDef>Details</th>
-      <td mat-cell *matCellDef="let e">{{ e.details ?? '' }}</td>
+      <td mat-cell *matCellDef="let e">{{ e.detailsJson ?? '' }}</td>
     </ng-container>
     <tr mat-header-row *matHeaderRowDef="columns"></tr>
     <tr mat-row *matRowDef="let row; columns: columns;"></tr>

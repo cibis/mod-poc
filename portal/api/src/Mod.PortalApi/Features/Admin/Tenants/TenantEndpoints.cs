@@ -17,7 +17,7 @@ internal static class TenantEndpoints
     private static async Task<IResult> ListTenants(ITenantService svc)
     {
         var tenants = await svc.ListTenantsAsync();
-        return Results.Ok(tenants);
+        return Results.Ok(new PagedResult<TenantSummary>(tenants, tenants.Count));
     }
 
     private static async Task<IResult> CreateTenant(

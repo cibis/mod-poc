@@ -197,7 +197,7 @@ internal sealed class SimRepository(SqlConfig config)
         await using var conn = Connect();
         var rows = await conn.QueryAsync<(string Key, long AtMs, double Value)>(
             """
-            SELECT MetricKey AS Key,
+            SELECT MetricKey,
                    DATEDIFF_BIG(MILLISECOND, '1970-01-01 00:00:00', At) AS AtMs,
                    Value
             FROM sim.MetricSample

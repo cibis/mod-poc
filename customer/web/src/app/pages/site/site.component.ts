@@ -52,6 +52,25 @@ export class SiteComponent implements OnInit, OnDestroy {
 
   readonly summaryColumns = ['name', 'eventCount', 'counterDelta', 'faultEventCount', 'restatedMinutes'];
 
+  private readonly _summaryEffect = toObservable(this.rangeDates)
+    .pipe(
+      switchMap(({ from, to }) =>
+        this.api.getSiteSummary(this.siteId(), from, to).pipe(
+          catchError(err => {
+            const status = (err as { status?: number }).status;
+            this.errorSummary.set(status === 404 ? 'Not found' : 'Failed to load summary');
+            return EMPTY;
+          }),
+        ),
+      ),
+      takeUntilDestroyed(this.destroyRef),
+    )
+    .subscribe(s => {
+      this.summary.set(s);
+      this.loadingSummary.set(false);
+      this.errorSummary.set(null);
+    });
+
   private freshnessSubscription?: ReturnType<typeof this.liveHub.freshnessUpdated$.subscribe>;
 
   ngOnInit(): void {
@@ -65,25 +84,6 @@ export class SiteComponent implements OnInit, OnDestroy {
           this.loadingHierarchy.set(false);
         },
         error: () => this.loadingHierarchy.set(false),
-      });
-
-    toObservable(this.rangeDates)
-      .pipe(
-        switchMap(({ from, to }) =>
-          this.api.getSiteSummary(this.siteId(), from, to).pipe(
-            catchError(err => {
-              const status = (err as { status?: number }).status;
-              this.errorSummary.set(status === 404 ? 'Not found' : 'Failed to load summary');
-              return EMPTY;
-            }),
-          ),
-        ),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe(s => {
-        this.summary.set(s);
-        this.loadingSummary.set(false);
-        this.errorSummary.set(null);
       });
 
     this.liveHub.start();

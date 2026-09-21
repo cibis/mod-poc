@@ -84,7 +84,7 @@ export class OverviewComponent {
       } else {
         [x, y] = positions[n.kind] ?? [300 + i * 40, 300];
       }
-      const replicas = n.replicas !== undefined ? `\n×${n.replicas}` : '';
+      const replicas = n.replicas != null ? `\n×${n.replicas}` : '';
       return {
         id: n.id,
         name: n.label + replicas,
@@ -201,8 +201,8 @@ export class OverviewComponent {
       title: { text: 'Running replicas per app', textStyle: { fontSize: 12, fontWeight: 'normal' } },
       xAxis: { type: 'time', axisLabel: { fontSize: 10 } },
       yAxis: { type: 'value', axisLabel: { fontSize: 10 }, minInterval: 1 },
-      grid: { left: 50, right: 80, top: 36, bottom: 36 },
-      legend: { right: 0, top: 28, textStyle: { fontSize: 10 } },
+      grid: { left: 50, right: 16, top: 72, bottom: 36 },
+      legend: { right: 0, top: 28, orient: 'horizontal', textStyle: { fontSize: 10 } },
       series: seriesList.map((s) => ({
         ...s,
         markLine: s.name === 'Ingest'
@@ -214,7 +214,7 @@ export class OverviewComponent {
   }
 
   nodeLabel(n: TopologyNode): string {
-    const r = n.replicas !== undefined ? ` ×${n.replicas}` : '';
+    const r = n.replicas != null ? ` ×${n.replicas}` : '';
     return n.label + r;
   }
 }

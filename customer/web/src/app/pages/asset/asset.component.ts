@@ -88,26 +88,26 @@ export class AssetComponent implements OnInit {
     };
   });
 
-  ngOnInit(): void {
-    toObservable(this.rangeDates)
-      .pipe(
-        switchMap(({ from, to }) =>
-          this.api.getAssetRollups(this.assetId(), from, to).pipe(
-            catchError(err => {
-              const status = (err as { status?: number }).status;
-              this.error.set(status === 404 ? 'Not found' : 'Failed to load rollups');
-              return EMPTY;
-            }),
-          ),
+  private readonly _rollupsEffect = toObservable(this.rangeDates)
+    .pipe(
+      switchMap(({ from, to }) =>
+        this.api.getAssetRollups(this.assetId(), from, to).pipe(
+          catchError(err => {
+            const status = (err as { status?: number }).status;
+            this.error.set(status === 404 ? 'Not found' : 'Failed to load rollups');
+            return EMPTY;
+          }),
         ),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe(r => {
-        this.rollups.set(r);
-        this.loading.set(false);
-        this.error.set(null);
-      });
+      ),
+      takeUntilDestroyed(),
+    )
+    .subscribe(r => {
+      this.rollups.set(r);
+      this.loading.set(false);
+      this.error.set(null);
+    });
 
+  ngOnInit(): void {
     this.liveHub.start();
     this.liveHub.rollupsUpdated$
       .pipe(takeUntilDestroyed(this.destroyRef))
