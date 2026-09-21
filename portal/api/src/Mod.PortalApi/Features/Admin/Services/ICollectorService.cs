@@ -34,7 +34,7 @@ internal sealed record CollectorSummary(
     int? ReportedConfigVersion, int? ConfigVersion,
     DateTime? CertificateExpiresAt,
     int? BufferDepthEvents, int? BufferCapacityEvents,
-    long? FreshnessAgeSeconds);
+    int? FreshnessAgeSeconds);
 
 internal sealed record CollectorRow(
     Guid CollectorId, Guid TenantId, Guid SiteId, string Name,
