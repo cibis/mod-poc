@@ -27,12 +27,11 @@ internal sealed class SimServiceBusClient : IAsyncDisposable
 
     internal async Task EnsureCollectorQueueAsync(Guid collectorId, CancellationToken ct = default)
     {
-        // PoC: Azure SB normalizes '/' to '~' in queue names. We must CREATE using the '/' form
-        // (the path Azure accepts) but reference the queue using the '~' form (the stored name).
-        // Production: use forward-slash paths throughout and let Azure handle normalisation.
-        var storedName = CollectorQueueName(collectorId);
+        // PoC: Azure SB normalizes '/' to '~' in stored queue names but the management API
+        // requires the '/' form for creation. QueueExistsAsync with the '~' form returns false
+        // even when the queue exists, so we skip the check and just ignore 409 on create.
         var creationPath = CollectorQueueCreationPath(collectorId);
-        if (!await _adminClient.QueueExistsAsync(storedName, ct))
+        try
         {
             await _adminClient.CreateQueueAsync(
                 new CreateQueueOptions(creationPath)
@@ -41,13 +40,15 @@ internal sealed class SimServiceBusClient : IAsyncDisposable
                     DeadLetteringOnMessageExpiration = false,
                 }, ct);
         }
+        catch (Azure.RequestFailedException ex) when (ex.Status == 409) { /* already exists */ }
     }
 
     internal async Task DeleteCollectorQueueAsync(Guid collectorId, CancellationToken ct = default)
     {
-        var name = CollectorQueueName(collectorId);
-        if (await _adminClient.QueueExistsAsync(name, ct))
-            await _adminClient.DeleteQueueAsync(name, ct);
+        // Use creation-path form; ignore 404 if already gone.
+        var creationPath = CollectorQueueCreationPath(collectorId);
+        try { await _adminClient.DeleteQueueAsync(creationPath, ct); }
+        catch (Azure.RequestFailedException ex) when (ex.Status == 404) { /* already gone */ }
     }
 
     internal string GetKeyName() => _sasKeyName;
