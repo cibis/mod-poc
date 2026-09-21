@@ -165,6 +165,6 @@ internal sealed class DeadLetterReplayService(
         Guid? EventId,
         string ReasonCode,
         string EventJson,
-        DateTimeOffset ReceivedAt,
+        DateTime ReceivedAt,
         int ReplayAttempts);
 }
