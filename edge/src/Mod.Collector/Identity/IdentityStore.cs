@@ -84,11 +84,12 @@ internal sealed class IdentityStore
     }
 
     // Returns a new X509Certificate2 instance with the private key attached — for TLS client auth.
+    // Uses CreateFromPem(cert, key) rather than CopyWithPrivateKey so the ephemeral key is
+    // accessible to the TLS stack on Linux/OpenSSL.
     public X509Certificate2 GetCertificateWithKey()
     {
         if (_certPem is null || _key is null) throw new InvalidOperationException("No certificate");
-        var cert = X509Certificate2.CreateFromPem(_certPem);
-        return cert.CopyWithPrivateKey(_key);
+        return X509Certificate2.CreateFromPem(_certPem, _key.ExportPkcs8PrivateKeyPem());
     }
 
     // --- private helpers ---
