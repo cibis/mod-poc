@@ -21,16 +21,19 @@ public sealed class SasTokenFactory(SasTokenFactory.Options opts)
 
     public TokenResult MintCollectorTokens(Guid tenantId, Guid collectorId)
     {
-        var requestQueue = $"cmd/{tenantId:D}/{collectorId:D}";
-        var replyQueue = $"reply/{tenantId:D}/{collectorId:D}";
+        var requestQueue = $"cmd~{tenantId:D}~{collectorId:D}";
+        var replyQueue = $"reply~{tenantId:D}~{collectorId:D}";
         var expiresAt = DateTimeOffset.UtcNow.AddMinutes(opts.LifetimeMinutes);
 
+        // PoC: namespace-scoped SAS so ServiceBusClient(fqdn, AzureSasCredential) works for any queue.
+        // Production: issue per-entity tokens scoped to the individual queue resource URI.
+        var namespaceSas = Mint($"https://{opts.NamespaceFqdn}/", expiresAt);
         return new TokenResult(
             opts.NamespaceFqdn,
             requestQueue,
             replyQueue,
-            Mint($"https://{opts.NamespaceFqdn}/{requestQueue}", expiresAt),
-            Mint($"https://{opts.NamespaceFqdn}/{replyQueue}", expiresAt),
+            namespaceSas,
+            namespaceSas,
             expiresAt);
     }
 

@@ -14,7 +14,6 @@ namespace Mod.Collector.Config;
 internal sealed class ConfigService : BackgroundService
 {
     private readonly IdentityStore _identity;
-    private readonly EnrolmentClient _enrolment;
     private readonly IHttpClientFactory _httpFactory;
     private readonly SqliteBuffer _buffer;
     private readonly InvalidDataInjector _injector;
@@ -27,22 +26,20 @@ internal sealed class ConfigService : BackgroundService
 
     private volatile CollectorConfig? _currentConfig;
     private string? _persistedConfigPath;
-    private string? _configJson;       // raw JSON of the currently applied config
-    private string? _configEtag;       // last ETag from GET /v1/config
+    private string? _configJson;
+    private string? _configEtag;
 
-    // Mutable source list — replaced atomically on config changes.
     private volatile IReadOnlyList<SimulatedSource> _sources = Array.Empty<SimulatedSource>();
     private readonly List<(SimulatedSource source, CancellationTokenSource cts)> _activeSourceEntries = new();
     private readonly SemaphoreSlim _sourceLock = new(1, 1);
 
-    // ConfigService signals this when enrolled so other services can wait.
+    // ConfigService signals this when the initial config is loaded so other services can start.
     private readonly TaskCompletionSource _enrolledTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public Task EnrolledTask => _enrolledTcs.Task;
 
     public CollectorConfig? CurrentConfig => _currentConfig;
     public IReadOnlyList<SimulatedSource> CurrentSources => _sources;
 
-    // Called by SimChannelListener on SetRate/SetPaused commands.
     public void SetRateAll(int eventsPerSecond)
     {
         foreach (var s in _sources)
@@ -55,7 +52,6 @@ internal sealed class ConfigService : BackgroundService
             s.SetPaused(paused);
     }
 
-    // Called by ProductCommandListener to force an immediate config refresh.
     public async Task<int> ForceConfigRefreshAsync(CancellationToken ct)
     {
         var config = _currentConfig;
@@ -68,7 +64,6 @@ internal sealed class ConfigService : BackgroundService
 
     public ConfigService(
         IdentityStore identity,
-        EnrolmentClient enrolment,
         IHttpClientFactory httpFactory,
         SqliteBuffer buffer,
         InvalidDataInjector injector,
@@ -80,7 +75,6 @@ internal sealed class ConfigService : BackgroundService
         ILogger<ConfigService> logger)
     {
         _identity = identity;
-        _enrolment = enrolment;
         _httpFactory = httpFactory;
         _buffer = buffer;
         _injector = injector;
@@ -95,35 +89,23 @@ internal sealed class ConfigService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _identity.Initialize();
+        // PoC: load shared cert and identity from env vars — no HTTP enrollment call.
+        // Production: call /v1/enrol with the single-use ENROLMENT_TOKEN to get a
+        // per-collector cert, then store it in the DATA_DIR volume.
+        _identity.Initialize(_options);
 
-        string initialConfigJson;
-
-        if (_identity.HasValidCertificate)
-        {
-            // Restart path: load the last-persisted config, then continue polling.
-            initialConfigJson = TryLoadPersistedConfig()
-                ?? await EnrolWithRetryAsync(stoppingToken);
-        }
-        else
-        {
-            initialConfigJson = await EnrolWithRetryAsync(stoppingToken);
-        }
+        // Load config from management API (retry indefinitely until cancellation).
+        var initialConfigJson = TryLoadPersistedConfig()
+            ?? await FetchConfigWithRetryAsync(_options.ManagementUrl, stoppingToken);
 
         await TryApplyConfigJsonAsync(initialConfigJson, stoppingToken);
         _enrolledTcs.TrySetResult();
 
-        // Config poll + certificate renewal loop.
         while (!stoppingToken.IsCancellationRequested)
         {
             var config = _currentConfig!;
             await Task.Delay(TimeSpan.FromSeconds(config.ConfigPollSeconds), stoppingToken);
 
-            // Certificate renewal check.
-            if (_identity.NeedsRenewal)
-                await _enrolment.TryRenewAsync(_currentConfig!.ManagementUrl, stoppingToken);
-
-            // Config poll.
             try
             {
                 var newJson = await PollConfigAsync(config.ManagementUrl, _configEtag, stoppingToken);
@@ -142,26 +124,28 @@ internal sealed class ConfigService : BackgroundService
 
     // --- private helpers ---
 
-    private async Task<string> EnrolWithRetryAsync(CancellationToken ct)
+    private async Task<string> FetchConfigWithRetryAsync(string managementUrl, CancellationToken ct)
     {
         while (true)
         {
             try
             {
-                var configJson = await _enrolment.EnrolAsync(ct);
-                PersistConfig(configJson);
-                return configJson;
+                var json = await PollConfigAsync(managementUrl, null, ct);
+                if (json is not null)
+                {
+                    PersistConfig(json);
+                    return json;
+                }
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Enrolment failed — retrying in 30 s");
-                await Task.Delay(TimeSpan.FromSeconds(30), ct);
+                _logger.LogWarning(ex, "Config fetch failed — retrying in 30 s");
             }
+            await Task.Delay(TimeSpan.FromSeconds(30), ct);
         }
     }
 
-    // Returns the new config JSON if the server returned 200, null if 304 (unchanged).
     private async Task<string?> PollConfigAsync(string managementUrl, string? etag, CancellationToken ct)
     {
         var client = _httpFactory.CreateClient();
@@ -198,17 +182,14 @@ internal sealed class ConfigService : BackgroundService
             return;
         }
 
-        // Build new sources.
         var newSources = newConfig.Sources.Select(src =>
             new SimulatedSource(src, _buffer, _injector, _validator, _minute,
                 _loggerFactory.CreateLogger<SimulatedSource>(),
                 _simState.EventsPerSecondPerSource)).ToList();
 
-        // Try starting sources; on failure keep previous config.
         await _sourceLock.WaitAsync(ct);
         try
         {
-            // Start new sources with a linked CTS.
             var newEntries = new List<(SimulatedSource, CancellationTokenSource)>();
             foreach (var src in newSources)
             {
@@ -217,11 +198,9 @@ internal sealed class ConfigService : BackgroundService
                 newEntries.Add((src, cts));
             }
 
-            // Apply sim state (in case sources were recreated mid-session).
             if (_simState.Paused)
                 foreach (var s in newSources) s.SetPaused(true);
 
-            // Stop old sources.
             foreach (var (old, oldCts) in _activeSourceEntries)
             {
                 await old.StopAsync(CancellationToken.None);
@@ -240,7 +219,6 @@ internal sealed class ConfigService : BackgroundService
         _currentConfig = newConfig;
         _configJson = json;
 
-        // Update buffer capacity if it changed.
         _buffer.SetCapacity(newConfig.CapacityEvents);
 
         PersistConfig(json);
@@ -293,7 +271,6 @@ internal sealed class ConfigService : BackgroundService
         }
     }
 
-    // Returns the SHA-256 hex of the current config JSON (UTF-8 bytes).
     public string GetConfigHash()
     {
         if (_configJson is null) return string.Empty;
@@ -301,7 +278,6 @@ internal sealed class ConfigService : BackgroundService
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
-    // Parses the management-API ConfigDocument into CollectorConfig.
     private static CollectorConfig ParseConfig(string json)
     {
         using var doc = JsonDocument.Parse(json);
@@ -324,7 +300,6 @@ internal sealed class ConfigService : BackgroundService
             sources = srcsEl.EnumerateArray().Select(s =>
             {
                 var pvList = new List<ProcessValueSpec>();
-                // processValue may be an object or absent
                 if (s.TryGetProperty("processValue", out var pv) && pv.ValueKind == JsonValueKind.Object)
                 {
                     pvList.Add(new ProcessValueSpec(
@@ -344,7 +319,6 @@ internal sealed class ConfigService : BackgroundService
             }).ToArray();
         }
 
-        // Must have collectorId so that a valid enrolled state is required before apply.
         var collectorId = r.TryGetProperty("collectorId", out var cid) ? cid.GetString()! : "";
         var tenantId = r.TryGetProperty("tenantId", out var tid) ? tid.GetString()! : "";
         var siteId = r.TryGetProperty("siteId", out var siid) ? siid.GetString()! : "";
@@ -357,17 +331,14 @@ internal sealed class ConfigService : BackgroundService
             SiteId = siteId,
             IngestUrl = r.TryGetProperty("ingestUrl", out var iu) ? iu.GetString()! : "",
             ManagementUrl = r.TryGetProperty("managementUrl", out var mu) ? mu.GetString()! : "",
+            ConfigPollSeconds = GetInt("configPollSeconds", 30),
+            HealthReportSeconds = GetInt("healthReportSeconds", 30),
+            CapacityEvents = GetInt("capacityEvents", 200_000),
+            MaxEvents = GetNestedInt("forwarding", "batchSize", 500),
+            MaxBytes = GetNestedInt("forwarding", "maxBytes", 262_144),
+            MaxBatchesPerSecond = GetNestedDouble("forwarding", "maxBatchesPerSecond", 5.0),
+            CommandChannelEnabled = r.TryGetProperty("commandChannelEnabled", out var cc) && cc.GetBoolean(),
             Sources = sources,
-            MaxEvents = GetNestedInt("batching", "maxEvents", 500),
-            MaxBytes = GetNestedInt("batching", "maxBytes", 262_144),
-            FlushIntervalMs = GetNestedInt("batching", "flushIntervalMs", 2_000),
-            MaxBatchesPerSecond = GetNestedDouble("forwarder", "maxBatchesPerSecond", 5.0),
-            RetryBaseMs = GetNestedInt("forwarder", "retryBaseMs", 1_000),
-            RetryMaxMs = GetNestedInt("forwarder", "retryMaxMs", 60_000),
-            CapacityEvents = GetNestedInt("buffer", "capacityEvents", 200_000),
-            ConfigPollSeconds = GetNestedInt("intervals", "configPollSeconds", 30),
-            HealthReportSeconds = GetNestedInt("intervals", "healthReportSeconds", 30),
-            CommandChannelEnabled = r.TryGetProperty("commandChannelEnabled", out var cce) && cce.GetBoolean(),
         };
     }
 }

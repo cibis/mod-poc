@@ -18,7 +18,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.ConfigureKestrel(k => k.ListenAnyIP(8080));
 
-// Capture Warning+ logs for GetDiagnostics responses.
 var logCapture = new LogCapture();
 builder.Logging.ClearProviders().AddConsole().AddProvider(logCapture)
     .SetMinimumLevel(options.ParsedLogLevel);
@@ -26,7 +25,6 @@ builder.Logging.ClearProviders().AddConsole().AddProvider(logCapture)
 builder.Services.AddSingleton(options);
 builder.Services.AddSingleton(logCapture);
 
-// Core singletons (no hosted-service role).
 builder.Services.AddSingleton<LinkGate>();
 builder.Services.AddSingleton<MinuteCounter>();
 builder.Services.AddSingleton<EdgeValidator>();
@@ -36,11 +34,9 @@ builder.Services.AddSingleton<SqliteBuffer>();
 // Sim state (DEMO SCAFFOLDING).
 builder.Services.AddSingleton<SimState>();
 
-// Identity.
+// Identity — shared cert loaded from env var at startup (no enrollment HTTP call).
 builder.Services.AddSingleton<IdentityStore>();
-builder.Services.AddSingleton<EnrolmentClient>();
 
-// Background services registered as singletons so other services can hold references.
 builder.Services.AddSingleton<ConfigService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ConfigService>());
 
@@ -59,7 +55,13 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<SimStatusPublisher
 builder.Services.AddSingleton<SimChannelListener>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<SimChannelListener>());
 
-// Default named HTTP client — carries the client certificate after enrolment.
+// HTTP client: carries the shared client cert (ClientCertificates for Linux/OpenSSL compat)
+// and injects X-Collector-Id on every outbound request so the platform APIs know which
+// collector is calling without reading the cert CN.
+// PoC: one cert for all collectors; no per-collector enrollment or renewal.
+// Production: two named clients — default (with per-collector cert) and "noClientCert"
+// (used only for POST /v1/enrol before a cert exists).
+builder.Services.AddTransient<CollectorIdHandler>();
 builder.Services.AddHttpClient(Microsoft.Extensions.Options.Options.DefaultName)
     .ConfigurePrimaryHttpMessageHandler(sp =>
     {
@@ -68,27 +70,18 @@ builder.Services.AddHttpClient(Microsoft.Extensions.Options.Options.DefaultName)
         var handler = new SocketsHttpHandler();
         var sslOpts = new SslClientAuthenticationOptions
         {
-            LocalCertificateSelectionCallback = (_, _, _, _, _) =>
-                identity.HasValidCertificate ? identity.GetCertificateWithKey() : null,
+            ClientCertificates = identity.TlsCertCollection,
+            LocalCertificateSelectionCallback = (_, _, localCerts, _, _) =>
+                localCerts.Count > 0
+                    ? (System.Security.Cryptography.X509Certificates.X509Certificate2)localCerts[0]
+                    : null,
         };
         if (opts.LocalInsecureTls)
             sslOpts.RemoteCertificateValidationCallback = (_, _, _, _) => true;
         handler.SslOptions = sslOpts;
         return handler;
-    });
-
-// "noClientCert" client — used only for POST /v1/enrol (no certificate yet).
-builder.Services.AddHttpClient("noClientCert")
-    .ConfigurePrimaryHttpMessageHandler(() =>
-    {
-        var handler = new SocketsHttpHandler();
-        if (options.LocalInsecureTls)
-            handler.SslOptions = new SslClientAuthenticationOptions
-            {
-                RemoteCertificateValidationCallback = (_, _, _, _) => true,
-            };
-        return handler;
-    });
+    })
+    .AddHttpMessageHandler<CollectorIdHandler>();
 
 if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
     builder.Services.AddOpenTelemetry().UseAzureMonitor();

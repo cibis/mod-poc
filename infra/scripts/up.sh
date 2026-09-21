@@ -232,6 +232,80 @@ _ca_cert_pem=$(openssl pkcs12 -in "$_pfx_tmp" -nokeys -passin pass: 2>/dev/null 
 rm -f "$_pfx_tmp"
 COLLECTOR_CA_PEM_B64=$(printf '%s' "$_ca_cert_pem" | base64 -w0)
 
+# ── Step 6b: Collector client certificate (PoC) ───────────────────────────────
+# PoC: one shared TLS client cert for all collectors; no per-collector enrollment or renewal.
+# This cert is signed by the collector CA and embedded in every collector container app.
+# Production: each collector generates its own key pair and receives a cert via POST /v1/enrol;
+# no shared cert secret needed here.
+
+create_collector_client_cert_if_absent() {
+  local vault="$1"
+  local existing
+  existing=$(az keyvault secret show --vault-name "$vault" --name collector-client-cert \
+    --query "value" -o tsv 2>/dev/null || true)
+  [[ -n "$existing" ]] && return 0
+
+  info "Creating collector client certificate (PoC shared cert, signed by collector CA)..."
+  local tmp_dir
+  tmp_dir=$(mktemp -d)
+  trap "rm -rf '$tmp_dir'" RETURN
+
+  # Fetch the CA key+cert from the KV secret (PKCS12 base64)
+  local ca_b64
+  ca_b64=$(az keyvault secret show --vault-name "$vault" --name collector-ca \
+    --query value -o tsv 2>/dev/null)
+  echo "$ca_b64" | base64 -d > "$tmp_dir/ca.pfx"
+  openssl pkcs12 -in "$tmp_dir/ca.pfx" -nocerts -noenc -passin pass: \
+    -out "$tmp_dir/ca-key.pem" 2>/dev/null
+  openssl pkcs12 -in "$tmp_dir/ca.pfx" -nokeys -passin pass: \
+    -out "$tmp_dir/ca-cert.pem" 2>/dev/null
+
+  # Generate EC P-256 client key and a CSR
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 \
+    -out "$tmp_dir/client-key.pem" 2>/dev/null
+  openssl req -new \
+    -key "$tmp_dir/client-key.pem" \
+    -out "$tmp_dir/client.csr" \
+    -subj "//CN=poc-collector" 2>/dev/null
+
+  # Sign with the CA for 10 years; add SAN and EKU for client auth
+  cat > "$tmp_dir/ext.cnf" <<EOF
+[ext]
+subjectAltName=URI:urn:mod:collector:poc-collector
+extendedKeyUsage=clientAuth
+keyUsage=critical,digitalSignature
+EOF
+  openssl x509 -req \
+    -days 3650 \
+    -in "$tmp_dir/client.csr" \
+    -CA "$tmp_dir/ca-cert.pem" \
+    -CAkey "$tmp_dir/ca-key.pem" \
+    -CAcreateserial \
+    -extfile "$tmp_dir/ext.cnf" \
+    -extensions ext \
+    -out "$tmp_dir/client-cert.pem" 2>/dev/null
+
+  # Export as PKCS12 (no password) and base64-encode for Key Vault secret storage
+  openssl pkcs12 -export -passout pass: \
+    -inkey "$tmp_dir/client-key.pem" \
+    -in "$tmp_dir/client-cert.pem" \
+    -out "$tmp_dir/client.pfx" 2>/dev/null
+  local pfx_b64
+  pfx_b64=$(base64 -w0 < "$tmp_dir/client.pfx")
+
+  az keyvault secret set \
+    --vault-name "$vault" --name collector-client-cert \
+    --value "$pfx_b64" \
+    --content-type "application/x-pkcs12" \
+    --output none
+}
+
+info "Ensuring collector client certificate..."
+create_collector_client_cert_if_absent "$KV_NAME"
+# URI for the KV secret (latest version); passed to apps.bicep so the portal container app
+# can load it as a secretRef and pass it to each collector container at power-on.
+COLLECTOR_CLIENT_CERT_SECRET_URI="${KV_URI}secrets/collector-client-cert"
+
 # ── Step 7: Developer access ──────────────────────────────────────────────────
 
 DEVELOPER_PRINCIPALS=""
@@ -423,6 +497,7 @@ MSYS_NO_PATHCONV=1 az deployment group create \
     collectorPullIdentityId="$COLLECTOR_PULL_IDENTITY_ID" \
     developerPrincipals="$DEVELOPER_PRINCIPALS" \
     collectorCaPemB64="$COLLECTOR_CA_PEM_B64" \
+    collectorClientCertSecretUri="$COLLECTOR_CLIENT_CERT_SECRET_URI" \
   --output none
 
 # ── Step 11: Run database migrator job ───────────────────────────────────────

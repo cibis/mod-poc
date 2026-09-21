@@ -11,6 +11,7 @@ A .NET 10 worker that behaves like the proposal's edge collector. Runs as a cont
 | Buffer | SQLite WAL file — lost if the container is replaced | Persistent durable queue with guaranteed delivery |
 | Update rings | Not implemented | Staged rollout via container app revisions |
 | Simulator channel | Present (demo scaffolding) | Absent — replaced by real fleet management |
+| Product command channel SAS | `ProductCommandListener` uses a namespace-scoped SAS token issued by `ca-mgmt` (`sr=https://fqdn/`) because `ServiceBusClient(fqdn, AzureSasCredential)` validates the token against the namespace URI. The PoC cmd/reply queue names also embed a `~` separator (Azure normalises `/` → `~` at creation). Production should issue per-entity SAS tokens and avoid path separators in queue names. |
 
 ## Running locally
 

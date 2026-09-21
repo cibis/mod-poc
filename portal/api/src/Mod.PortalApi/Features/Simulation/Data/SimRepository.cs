@@ -93,7 +93,7 @@ internal sealed class SimRepository(SqlConfig config)
         await using var conn = Connect();
         var targetsJson = targets is { Count: > 0 }
             ? System.Text.Json.JsonSerializer.Serialize(targets)
-            : null;
+            : "[]";
         return await conn.ExecuteScalarAsync<long>(
             """
             INSERT INTO sim.TimelineMarker (At, Kind, Label, TargetsJson, ScenarioRunId)

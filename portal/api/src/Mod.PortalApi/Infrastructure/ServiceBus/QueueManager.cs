@@ -37,6 +37,10 @@ internal sealed class QueueManager(ServiceBusAdministrationClient adminClient) :
             await adminClient.DeleteQueueAsync(name, ct);
     }
 
+    // PoC: Azure SB normalises '/' to '~' in queue names at creation time. We submit the '/' form
+    // (creation path) to the management API; Azure stores it as the '~' form (stored name).
+    // The management-api's SasTokenFactory and the collector's ProductCommandListener reference
+    // queues using the '~' form. Production code should avoid embedding separators entirely.
     internal static string RequestQueueName(Guid tenantId, Guid collectorId) =>
         $"cmd/{tenantId:D}/{collectorId:D}";
 

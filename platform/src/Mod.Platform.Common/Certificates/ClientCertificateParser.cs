@@ -22,7 +22,7 @@ public static class ClientCertificateParser
             if (!key.Equals("Cert", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var encoded = segment[(eq + 1)..].Trim();
+            var encoded = segment[(eq + 1)..].Trim().Trim('"');
             try
             {
                 var pem = Uri.UnescapeDataString(encoded);

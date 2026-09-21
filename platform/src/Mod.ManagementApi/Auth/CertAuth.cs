@@ -14,10 +14,14 @@ internal static class CertAuth
         if (cert is null)
             return (Results.StatusCode(401), null);
 
+        // PoC: collectorId is trusted from X-Collector-Id header after CA chain validation.
+        // Production: extract collectorId from cert CN, never from a header.
+        var collectorIdHint = context.Request.Headers["X-Collector-Id"].ToString();
+
         CertValidationResult result;
         try
         {
-            result = await validator.ValidateAsync(cert, ct);
+            result = await validator.ValidateAsync(cert, collectorIdHint, ct);
         }
         finally
         {

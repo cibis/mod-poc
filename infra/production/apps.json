@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "13004497267048370735"
+      "templateHash": "11084973628191876"
     }
   },
   "parameters": {
@@ -132,6 +132,10 @@
       "defaultValue": ""
     },
     "collectorCaPemB64": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "collectorClientCertSecretUri": {
       "type": "string",
       "defaultValue": ""
     }
@@ -426,6 +430,11 @@
               "name": "sim-sb-sas-key",
               "keyVaultUrl": "[parameters('simSbIssuerKeySecretUri')]",
               "identity": "[parameters('portalIdentityId')]"
+            },
+            {
+              "name": "collector-client-cert",
+              "keyVaultUrl": "[parameters('collectorClientCertSecretUri')]",
+              "identity": "[parameters('portalIdentityId')]"
             }
           ]
         },
@@ -554,6 +563,10 @@
                 {
                   "name": "MANAGEMENT_URL",
                   "value": "[variables('managementUrl')]"
+                },
+                {
+                  "name": "COLLECTOR_CLIENT_CERT_B64",
+                  "secretRef": "collector-client-cert"
                 }
               ],
               "probes": [

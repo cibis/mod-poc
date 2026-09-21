@@ -27,6 +27,7 @@ internal sealed class ContainerAppProvisioner
     private readonly string _collectorSoftwareVersion;
     private readonly string _productionSubscriptionId;
     private readonly string _productionResourceGroup;
+    private readonly string _collectorClientCertB64;
 
     internal ContainerAppProvisioner()
     {
@@ -44,6 +45,9 @@ internal sealed class ContainerAppProvisioner
             : "latest";
         _productionSubscriptionId = Env("PRODUCTION_SUBSCRIPTION_ID");
         _productionResourceGroup = Env("PRODUCTION_RESOURCE_GROUP");
+        // PoC: shared client cert loaded at portal startup; passed to each collector at power-on.
+        // Production: each collector generates its own cert via /v1/enrol; no cert env var needed here.
+        _collectorClientCertB64 = Env("COLLECTOR_CLIENT_CERT_B64");
 
         var credential = CredentialFactory.CreateDefault();
         _arm = new ArmClient(credential);
@@ -56,7 +60,7 @@ internal sealed class ContainerAppProvisioner
     // Starts the container app creation. Returns an ARM long-running operation that the caller
     // polls. State transitions (Provisioning → Running / Failed) are handled by the caller.
     internal async Task<ArmOperation<ContainerAppResource>> StartCreateAsync(
-        Guid collectorId, string enrolmentToken, string commandSas, string statusSas,
+        Guid collectorId, Guid tenantId, Guid siteId, string commandSas, string statusSas,
         CancellationToken ct = default)
     {
         var rgId = ResourceGroupResource.CreateResourceIdentifier(
@@ -65,7 +69,7 @@ internal sealed class ContainerAppProvisioner
         var apps = rg.GetContainerApps();
 
         var appName = AppName(collectorId);
-        var appData = BuildAppData(collectorId, enrolmentToken, commandSas, statusSas);
+        var appData = BuildAppData(collectorId, tenantId, siteId, commandSas, statusSas);
 
         return await apps.CreateOrUpdateAsync(WaitUntil.Started, appName, appData, ct);
     }
@@ -123,7 +127,7 @@ internal sealed class ContainerAppProvisioner
     }
 
     private ContainerAppData BuildAppData(
-        Guid collectorId, string enrolmentToken, string commandSas, string statusSas)
+        Guid collectorId, Guid tenantId, Guid siteId, string commandSas, string statusSas)
     {
         var config = new ContainerAppConfiguration
         {
@@ -134,7 +138,9 @@ internal sealed class ContainerAppProvisioner
             Server = _registryServer,
             Identity = _pullIdentityId,
         });
-        config.Secrets.Add(new ContainerAppWritableSecret { Name = "enrolment-token", Value = enrolmentToken });
+        // PoC: shared client cert passed as a secret; one cert for all collectors.
+        // Production: cert is issued per-collector via /v1/enrol; no cert secret needed here.
+        config.Secrets.Add(new ContainerAppWritableSecret { Name = "collector-client-cert", Value = _collectorClientCertB64 });
         config.Secrets.Add(new ContainerAppWritableSecret { Name = "sim-command-sas", Value = commandSas });
         config.Secrets.Add(new ContainerAppWritableSecret { Name = "sim-status-sas", Value = statusSas });
 
@@ -151,8 +157,10 @@ internal sealed class ContainerAppProvisioner
             HttpGet = new ContainerAppHttpRequestInfo(8080) { Path = "/healthz" },
         });
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "COLLECTOR_ID", Value = collectorId.ToString("D") });
+        container.Env.Add(new ContainerAppEnvironmentVariable { Name = "TENANT_ID", Value = tenantId.ToString("D") });
+        container.Env.Add(new ContainerAppEnvironmentVariable { Name = "SITE_ID", Value = siteId.ToString("D") });
+        container.Env.Add(new ContainerAppEnvironmentVariable { Name = "COLLECTOR_CLIENT_CERT_B64", SecretRef = "collector-client-cert" });
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "MANAGEMENT_URL", Value = _managementUrl });
-        container.Env.Add(new ContainerAppEnvironmentVariable { Name = "ENROLMENT_TOKEN", SecretRef = "enrolment-token" });
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "DATA_DIR", Value = "/data" });
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "SIM_SB_FQDN", Value = _simSbFqdn });
         container.Env.Add(new ContainerAppEnvironmentVariable { Name = "SIM_COMMAND_QUEUE", Value = SimChannel.CollectorQueueName(collectorId) });
@@ -191,5 +199,5 @@ internal sealed class ContainerAppProvisioner
 // Forward reference used inside BuildAppData to avoid circular reference with Channel namespace.
 file static class SimChannel
 {
-    internal static string CollectorQueueName(Guid id) => $"sim/{id:D}";
+    internal static string CollectorQueueName(Guid id) => $"sim~{id:D}";
 }

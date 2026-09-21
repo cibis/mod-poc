@@ -31,11 +31,15 @@ internal sealed class SimServiceBusClient : IAsyncDisposable
 
     internal async Task EnsureCollectorQueueAsync(Guid collectorId, CancellationToken ct = default)
     {
-        var name = CollectorQueueName(collectorId);
-        if (!await _adminClient.QueueExistsAsync(name, ct))
+        // PoC: Azure SB normalizes '/' to '~' in queue names. We must CREATE using the '/' form
+        // (the path Azure accepts) but reference the queue using the '~' form (the stored name).
+        // Production: use forward-slash paths throughout and let Azure handle normalisation.
+        var storedName = CollectorQueueName(collectorId);
+        var creationPath = CollectorQueueCreationPath(collectorId);
+        if (!await _adminClient.QueueExistsAsync(storedName, ct))
         {
             await _adminClient.CreateQueueAsync(
-                new CreateQueueOptions(name)
+                new CreateQueueOptions(creationPath)
                 {
                     DefaultMessageTimeToLive = TimeSpan.FromSeconds(60),
                     DeadLetteringOnMessageExpiration = false,
@@ -50,13 +54,13 @@ internal sealed class SimServiceBusClient : IAsyncDisposable
             await _adminClient.DeleteQueueAsync(name, ct);
     }
 
-    // Mint a Listen SAS token valid for 30 days for a specific queue.
+    // PoC: namespace-scoped SAS so ServiceBusClient(fqdn, AzureSasCredential) works for any queue.
+    // Production: issue per-entity tokens scoped to the individual queue resource URI.
     internal string MintListenToken(string queueName, TimeSpan duration)
-        => GenerateSasToken(ResourceUri(queueName), _sasKeyName, _sasKey, duration);
+        => GenerateSasToken(NamespaceResourceUri(), _sasKeyName, _sasKey, duration);
 
-    // Mint a Send SAS token valid for 30 days for a specific queue.
     internal string MintSendToken(string queueName, TimeSpan duration)
-        => GenerateSasToken(ResourceUri(queueName), _sasKeyName, _sasKey, duration);
+        => GenerateSasToken(NamespaceResourceUri(), _sasKeyName, _sasKey, duration);
 
     internal async Task SendCommandAsync(Guid collectorId, SimCommandBody command, CancellationToken ct = default)
     {
@@ -77,7 +81,13 @@ internal sealed class SimServiceBusClient : IAsyncDisposable
 
     internal ServiceBusClient GetClient() => _client;
 
-    internal static string CollectorQueueName(Guid collectorId) => $"sim/{collectorId:D}";
+    // Stored name (post-normalisation) used for SAS tokens, senders, receivers, and delete.
+    internal static string CollectorQueueName(Guid collectorId) => $"sim~{collectorId:D}";
+
+    // Creation path submitted to the SB management API; Azure normalises '/' to '~' on write.
+    private static string CollectorQueueCreationPath(Guid collectorId) => $"sim/{collectorId:D}";
+
+    private string NamespaceResourceUri() => $"https://{_fqdn}/";
 
     private string ResourceUri(string queueName)
         => $"https://{_fqdn}/{queueName}";

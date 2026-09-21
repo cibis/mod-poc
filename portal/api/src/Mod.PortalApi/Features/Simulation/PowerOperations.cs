@@ -82,7 +82,8 @@ internal sealed class PowerOperations(
                     try
                     {
                         var operation = await provisioner.StartCreateAsync(
-                            collectorId, tokenResult.Token, commandSas, statusSas);
+                            collectorId, detail.Collector.TenantId, detail.Collector.SiteId,
+                            commandSas, statusSas);
 
                         while (!operation.HasCompleted)
                         {

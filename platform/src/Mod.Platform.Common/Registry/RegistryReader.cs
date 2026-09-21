@@ -52,4 +52,28 @@ public sealed class RegistryReader(SqlConnectionFactory connectionFactory, IMemo
         cache.Set(key, record, CacheTtl);
         return record;
     }
+
+    // PoC: look up collector by ID (used when collectorId comes from X-Collector-Id header
+    // rather than from the cert CN). Production would also validate via cert thumbprint.
+    public async Task<CollectorRecord?> GetCollectorByIdAsync(
+        Guid collectorId,
+        CancellationToken ct = default)
+    {
+        var key = $"collector-id:{collectorId:D}";
+        if (cache.TryGetValue(key, out CollectorRecord? cached))
+            return cached;
+
+        const string sql = """
+            SELECT CollectorId, TenantId, SiteId, Status
+            FROM registry.Collector
+            WHERE CollectorId = @collectorId
+            """;
+
+        await using var conn = connectionFactory.CreateConnection();
+        var record = await conn.QuerySingleOrDefaultAsync<CollectorRecord>(
+            new CommandDefinition(sql, new { collectorId }, cancellationToken: ct));
+
+        cache.Set(key, record, CacheTtl);
+        return record;
+    }
 }

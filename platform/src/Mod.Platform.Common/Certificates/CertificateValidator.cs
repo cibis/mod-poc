@@ -1,16 +1,22 @@
-using System.Formats.Asn1;
 using System.Security.Cryptography.X509Certificates;
 using Mod.Platform.Common.Registry;
 
 namespace Mod.Platform.Common.Certificates;
 
+// PoC simplification: validates that the client cert is signed by the collector CA,
+// then looks up the collector by the ID carried in the X-Collector-Id request header.
+// One shared cert is used for all collectors; no per-collector cert issuance or renewal.
+//
+// Production would: extract collectorId from cert CN, verify matching SAN URI, look up
+// cert thumbprint in registry.Certificate (revocation check), and never trust a header.
 public sealed class CertificateValidator(X509Certificate2 caCertificate, RegistryReader registry)
 {
     public async Task<CertValidationResult> ValidateAsync(
         X509Certificate2 cert,
+        string collectorIdHint,
         CancellationToken ct = default)
     {
-        // Structural failures → 401
+        // Structural check: cert must be signed by our collector CA.
         if (!ValidateChain(cert))
             return new(null, CertValidationError.InvalidCertificate);
 
@@ -18,24 +24,16 @@ public sealed class CertificateValidator(X509Certificate2 caCertificate, Registr
         if (now < cert.NotBefore || now > cert.NotAfter)
             return new(null, CertValidationError.InvalidCertificate);
 
-        var cn = cert.GetNameInfo(X509NameType.SimpleName, false);
-        if (!Guid.TryParse(cn, out var collectorId))
+        // PoC: collectorId comes from the X-Collector-Id header, not the cert CN.
+        if (!Guid.TryParse(collectorIdHint, out var collectorId))
             return new(null, CertValidationError.InvalidCertificate);
 
-        if (!ValidateSan(cert, collectorId))
-            return new(null, CertValidationError.InvalidCertificate);
+        // Verify the collector is registered and active.
+        var collectorRecord = await registry.GetCollectorByIdAsync(collectorId, ct);
+        if (collectorRecord is null || collectorRecord.Status is not ("Registered" or "Enrolled"))
+            return new(null, CertValidationError.ForbiddenAccess);
 
         var thumbprint = ClientCertificateParser.ComputeThumbprint(cert);
-
-        // Registry failures → 403
-        var certRecord = await registry.GetCertificateByThumbprintAsync(thumbprint, ct);
-        if (certRecord is null || certRecord.RevokedAt is not null)
-            return new(null, CertValidationError.ForbiddenAccess);
-
-        var collectorRecord = await registry.GetCollectorByThumbprintAsync(thumbprint, ct);
-        if (collectorRecord is null || collectorRecord.Status != "Enrolled")
-            return new(null, CertValidationError.ForbiddenAccess);
-
         return new(
             new CollectorIdentity(collectorId, collectorRecord.TenantId, collectorRecord.SiteId, thumbprint),
             null);
@@ -48,42 +46,5 @@ public sealed class CertificateValidator(X509Certificate2 caCertificate, Registr
         chain.ChainPolicy.CustomTrustStore.Add(caCertificate);
         chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
         return chain.Build(cert);
-    }
-
-    private static bool ValidateSan(X509Certificate2 cert, Guid collectorId)
-    {
-        var expected = $"urn:mod:collector:{collectorId:D}";
-        var sanExt = cert.Extensions["2.5.29.17"];
-        if (sanExt is null)
-            return false;
-
-        foreach (var uri in ReadSanUris(sanExt.RawData))
-        {
-            if (string.Equals(uri, expected, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
-    }
-
-    // GeneralName [6] uniformResourceIdentifier ::= IMPLICIT IA5String
-    private static List<string> ReadSanUris(byte[] rawData)
-    {
-        var result = new List<string>();
-        try
-        {
-            var uriTag = new Asn1Tag(TagClass.ContextSpecific, 6);
-            var reader = new AsnReader(rawData, AsnEncodingRules.DER);
-            var seq = reader.ReadSequence();
-            while (seq.HasData)
-            {
-                var tag = seq.PeekTag();
-                if (tag.TagClass == TagClass.ContextSpecific && tag.TagValue == 6 && !tag.IsConstructed)
-                    result.Add(seq.ReadCharacterString(UniversalTagNumber.IA5String, uriTag));
-                else
-                    seq.ReadEncodedValue();
-            }
-        }
-        catch (AsnContentException) { }
-        return result;
     }
 }

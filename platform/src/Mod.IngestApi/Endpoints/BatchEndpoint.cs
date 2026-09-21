@@ -59,10 +59,14 @@ public static class BatchEndpoint
                 return Results.StatusCode(401);
             }
 
+            // PoC: collectorId is trusted from X-Collector-Id header after CA chain validation.
+            // Production: extract collectorId from cert CN, never from a header.
+            var collectorIdHint = request.Headers["X-Collector-Id"].ToString();
+
             CertValidationResult certResult;
             try
             {
-                certResult = await certValidator.ValidateAsync(cert, ct);
+                certResult = await certValidator.ValidateAsync(cert, collectorIdHint, ct);
             }
             finally
             {

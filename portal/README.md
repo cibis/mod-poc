@@ -11,6 +11,8 @@ Admin portal and simulator for the MOD Cloud Platform PoC (`ca-portal`).
 | Command requests | Unsigned HTTP requests forwarded to collectors; no message signing or HMAC verification on the collector side. |
 | Tenancy | Pooled tenancy only. The Dedicated option is visible in the UI but shown as disabled. |
 | Simulator | Service Bus channel (`SIM_SB_FQDN`) and collector container app provisioning in the controller resource group are **demo scaffolding** — they exist only to drive the PoC demonstration. |
+| SAS token scope | Simulator SAS tokens minted for collectors are namespace-scoped (`https://fqdn/`) rather than per-queue, because `ServiceBusClient(fqdn, AzureSasCredential)` validates the token against the namespace URI. Production should issue per-entity tokens and use per-entity client construction. |
+| SB queue name separator | Azure Service Bus normalises `/` to `~` in queue names at creation time. Sim queues (`sim/{collectorId}`) and cmd/reply queues (`cmd/{tenantId}/{collectorId}`) are created using the `/` form so Azure accepts them, but the stored names use `~` as separator. SAS tokens, senders, receivers, and delete operations reference the stored `~` form. Production code should avoid embedding separators entirely. |
 
 ## Local development
 

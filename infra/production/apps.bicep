@@ -51,6 +51,10 @@ param developerPrincipals string = ''
 // ── collector CA public cert (base64 PEM) for ingest-api TLS validation ───────
 param collectorCaPemB64 string = ''
 
+// ── collector client cert KV secret URI (PoC: shared cert for all collectors) ─
+// Production: not needed — each collector's cert is issued per-collector via /v1/enrol.
+param collectorClientCertSecretUri string = ''
+
 // ── derived values ────────────────────────────────────────────────────────────
 var modEnv = 'production'
 var ingestUrl = 'https://ca-ingest.${caeDefaultDomain}'
@@ -227,6 +231,13 @@ resource caPortal 'Microsoft.App/containerApps@2024-03-01' = {
           keyVaultUrl: simSbIssuerKeySecretUri
           identity: portalIdentityId
         }
+        {
+          // PoC: shared client cert secret; portal reads it and passes it to each collector at power-on.
+          // Production: remove this — each collector generates its own cert via /v1/enrol.
+          name: 'collector-client-cert'
+          keyVaultUrl: collectorClientCertSecretUri
+          identity: portalIdentityId
+        }
       ]
     }
     template: {
@@ -268,6 +279,9 @@ resource caPortal 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'COLLECTOR_IMAGE', value: collectorImage }
             { name: 'COLLECTOR_PULL_IDENTITY_ID', value: collectorPullIdentityId }
             { name: 'MANAGEMENT_URL', value: managementUrl }
+            // PoC: shared client cert loaded by portal at startup; forwarded to each collector at power-on.
+            // Production: remove this — each collector's cert comes from /v1/enrol.
+            { name: 'COLLECTOR_CLIENT_CERT_B64', secretRef: 'collector-client-cert' }
           ]
           probes: [
             { type: 'Liveness', httpGet: { path: '/healthz', port: 8080 } }

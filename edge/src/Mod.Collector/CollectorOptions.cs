@@ -3,8 +3,12 @@ namespace Mod.Collector;
 internal sealed class CollectorOptions
 {
     public required string CollectorId { get; init; }
+    public required string TenantId { get; init; }
+    public required string SiteId { get; init; }
+    // PoC: one shared client cert for all collectors, no renewal.
+    // Production: each collector generates its own key pair and enrolls via /v1/enrol.
+    public required string ClientCertB64 { get; init; }
     public required string ManagementUrl { get; init; }
-    public string? EnrolmentToken { get; init; }
     public required string DataDir { get; init; }
     public required string SimSbFqdn { get; init; }
     public required string SimCommandQueue { get; init; }
@@ -28,8 +32,10 @@ internal sealed class CollectorOptions
         }
 
         var collectorId = Require("COLLECTOR_ID");
+        var tenantId = Require("TENANT_ID");
+        var siteId = Require("SITE_ID");
+        var clientCertB64 = Require("COLLECTOR_CLIENT_CERT_B64");
         var managementUrl = Require("MANAGEMENT_URL");
-        var enrolmentToken = Environment.GetEnvironmentVariable("ENROLMENT_TOKEN");
         var dataDir = Environment.GetEnvironmentVariable("DATA_DIR") is { Length: > 0 } d ? d : "/data";
         var simSbFqdn = Require("SIM_SB_FQDN");
         var simCommandQueue = Require("SIM_COMMAND_QUEUE");
@@ -52,8 +58,10 @@ internal sealed class CollectorOptions
         return new CollectorOptions
         {
             CollectorId = collectorId,
+            TenantId = tenantId,
+            SiteId = siteId,
+            ClientCertB64 = clientCertB64,
             ManagementUrl = managementUrl,
-            EnrolmentToken = enrolmentToken,
             DataDir = dataDir,
             SimSbFqdn = simSbFqdn,
             SimCommandQueue = simCommandQueue,
