@@ -179,52 +179,58 @@ create_secret_if_absent "$KV_NAME" "customer-password" \
 
 create_collector_ca_if_absent() {
   local vault="$1"
-  az keyvault certificate show --vault-name "$vault" --name collector-ca \
-    --query id -o tsv 2>/dev/null | grep -q . && return 0
-  local policy
-  policy=$(jq -n '{
-    issuerParameters: {name:"Self"},
-    keyProperties: {keyType:"EC",curve:"P-256",exportable:true},
-    x509CertificateProperties: {
-      subject:"CN=MOD PoC Collector CA",
-      validityInMonths:24,
-      keyUsage:["keyCertSign","cRLSign","digitalSignature"],
-      basicConstraints:{ca:true,pathLenConstraint:0}
-    },
-    secretProperties: {contentType:"application/x-pem-file"}
-  }')
-  info "Creating collector CA certificate..."
-  local attempt
-  for attempt in 1 2 3 4 5; do
-    az keyvault certificate create \
-      --vault-name "$vault" \
-      --name collector-ca \
-      --policy "$policy" \
-      --output none 2>/dev/null && break
-    warn "Certificate create attempt $attempt failed (RBAC propagation delay); retrying in 30 s..."
-    sleep 30
-    [[ $attempt -eq 5 ]] && die "Failed to create collector-ca certificate after 5 attempts"
-  done
-  local _status
-  for _i in $(seq 1 30); do
-    _status=$(az keyvault certificate show \
-      --vault-name "$vault" --name collector-ca \
-      --query attributes.enabled -o tsv 2>/dev/null || echo "false")
-    [[ "$_status" == "true" ]] && break
-    sleep 5
-  done
-  [[ "$_status" == "true" ]] || die "Timed out waiting for collector-ca certificate issuance"
+  # Key Vault Self-signed certificates do not reliably set cA=TRUE in the BasicConstraints
+  # extension on EC keys. We generate the CA using openssl and store it as a secret (PKCS12
+  # base64) so the management API can load it via X509CertificateLoader.LoadPkcs12.
+  # Idempotency: skip if the secret already exists and is non-empty.
+  local existing
+  existing=$(az keyvault secret show --vault-name "$vault" --name collector-ca \
+    --query "value" -o tsv 2>/dev/null || true)
+  [[ -n "$existing" ]] && return 0
+
+  info "Creating collector CA certificate (openssl, cA=TRUE)..."
+  local tmp_dir
+  tmp_dir=$(mktemp -d)
+  trap "rm -rf '$tmp_dir'" RETURN
+
+  # Generate EC P-256 key and self-signed CA cert with cA=TRUE
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 \
+    -out "$tmp_dir/ca-key.pem" 2>/dev/null
+  openssl req -new -x509 -days 730 \
+    -key "$tmp_dir/ca-key.pem" \
+    -out "$tmp_dir/ca-cert.pem" \
+    -subj "//CN=MOD PoC Collector CA" \
+    -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
+    -addext "keyUsage=critical,keyCertSign,cRLSign,digitalSignature" \
+    2>/dev/null
+
+  # Convert to PKCS12 (no password) and base64-encode for Key Vault secret storage
+  openssl pkcs12 -export -passout pass: \
+    -inkey "$tmp_dir/ca-key.pem" \
+    -in "$tmp_dir/ca-cert.pem" \
+    -out "$tmp_dir/ca.pfx" 2>/dev/null
+  local pfx_b64
+  pfx_b64=$(base64 -w0 < "$tmp_dir/ca.pfx")
+
+  az keyvault secret set \
+    --vault-name "$vault" --name collector-ca \
+    --value "$pfx_b64" \
+    --content-type "application/x-pkcs12" \
+    --output none
 }
 
 info "Ensuring collector CA certificate..."
 create_collector_ca_if_absent "$KV_NAME"
-_ca_tmp=$(mktemp)
-rm -f "$_ca_tmp"
-az keyvault certificate download \
-  --vault-name "$KV_NAME" --name collector-ca --encoding PEM \
-  --file "$_ca_tmp"
-COLLECTOR_CA_PEM_B64=$(base64 -w0 < "$_ca_tmp")
-rm -f "$_ca_tmp"
+# Read the CA public certificate from the secret (PKCS12 base64) for use in Bicep parameters.
+# openssl pkcs12 -nokeys -noout ... extracts the public cert PEM.
+_kv_secret=$(az keyvault secret show --vault-name "$KV_NAME" --name collector-ca \
+  --query value -o tsv 2>/dev/null)
+_pfx_tmp=$(mktemp)
+echo "$_kv_secret" | base64 -d > "$_pfx_tmp"
+_ca_cert_pem=$(openssl pkcs12 -in "$_pfx_tmp" -nokeys -passin pass: 2>/dev/null \
+  | grep -v "^MAC\|^Bag\|^Bag Attr\|^subject\|^issuer\|friendlyName")
+rm -f "$_pfx_tmp"
+COLLECTOR_CA_PEM_B64=$(printf '%s' "$_ca_cert_pem" | base64 -w0)
 
 # ── Step 7: Developer access ──────────────────────────────────────────────────
 
